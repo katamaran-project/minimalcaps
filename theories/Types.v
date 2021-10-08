@@ -32,7 +32,7 @@ From stdpp Require
      finite.
 From Equations Require Import
      Equations.
-From MicroSail Require Import
+From Katamaran Require Import
      Syntax.Types.
 
 (*** TYPES ***)

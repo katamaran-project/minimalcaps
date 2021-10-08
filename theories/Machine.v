@@ -31,7 +31,7 @@ From Coq Require Import
      ZArith.ZArith.
 From Equations Require Import
      Equations.
-From MicroSail Require Import
+From Katamaran Require Import
      Syntax.
 From MinimalCaps Require Export
      Values.

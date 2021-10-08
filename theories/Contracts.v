@@ -38,13 +38,13 @@ From Coq Require Import
 From Equations Require Import
      Equations.
 
-From MicroSail Require Import
+From Katamaran Require Import
      Sep.Spec
      Symbolic.Mutator
      Syntax.
-
-From MicroSail Require Environment.
-From MicroSail Require Sep.Logic.
+From Katamaran Require
+     Environment
+     Sep.Logic.
 
 Set Implicit Arguments.
 Import CtxNotations.

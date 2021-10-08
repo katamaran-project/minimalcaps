@@ -40,14 +40,15 @@ From Coq Require Import
 From Equations Require Import
      Equations.
 
-From MicroSail Require Import
+From Katamaran Require Import
      Sep.Spec
      Symbolic.Mutator
      Syntax.
+From Katamaran Require
+     Environment
+     Iris.Model
+     Sep.Logic.
 
-From MicroSail Require Environment.
-From MicroSail Require Iris.Model.
-From MicroSail Require Sep.Logic.
 From iris.base_logic Require lib.gen_heap lib.iprop.
 From iris.base_logic Require Export invariants.
 From iris.bi Require interface big_op.
@@ -64,7 +65,6 @@ Set Implicit Arguments.
 Module gh := iris.base_logic.lib.gen_heap.
 
 Module MinCapsModel.
-  Import MicroSail.Iris.Model.
 
   Ltac destruct_syminstance ι :=
     repeat
@@ -85,11 +85,11 @@ Module MinCapsModel.
       | ι : Env _ ctx_nil        |- _ => destruct_syminstance ι
       end.
 
-  Module MinCapsIrisHeapKit <: IrisHeapKit MinCapsTermKit MinCapsProgramKit MinCapsAssertionKit MinCapsSymbolicContractKit.
+  Module MinCapsIrisHeapKit <: Iris.Model.IrisHeapKit MinCapsTermKit MinCapsProgramKit MinCapsAssertionKit MinCapsSymbolicContractKit.
 
     Variable maxAddr : nat.
 
-    Module IrisRegs := IrisRegisters MinCapsTermKit MinCapsProgramKit MinCapsAssertionKit MinCapsSymbolicContractKit.
+    Module IrisRegs := Iris.Model.IrisRegisters MinCapsTermKit MinCapsProgramKit MinCapsAssertionKit MinCapsSymbolicContractKit.
     Export IrisRegs.
 
     Section WithIrisNotations.
@@ -407,7 +407,7 @@ Module MinCapsModel.
     End WithIrisNotations.
   End MinCapsIrisHeapKit.
 
-  Module Soundness := IrisSoundness MinCapsTermKit MinCapsProgramKit MinCapsAssertionKit MinCapsSymbolicContractKit MinCapsIrisHeapKit.
+  Module Soundness := Iris.Model.IrisSoundness MinCapsTermKit MinCapsProgramKit MinCapsAssertionKit MinCapsSymbolicContractKit MinCapsIrisHeapKit.
   Export Soundness.
 
   Section Lemmas.

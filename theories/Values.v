@@ -29,7 +29,7 @@
 From Coq Require Import
      Strings.String
      ZArith.ZArith.
-From MicroSail Require Import
+From Katamaran Require Import
      Notation
      Syntax.Values.
 From MinimalCaps Require Export
