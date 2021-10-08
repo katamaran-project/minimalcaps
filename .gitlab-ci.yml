@@ -1,0 +1,22 @@
+stages:
+  - build
+
+.build: &build
+  stage: build
+  before_script:
+    - opam repo add katamaran https://github.com/katamaran-project/opam-repository.git
+    - opam install coq-katamaran
+    - opam list
+  script:
+    - make -j$(nproc)
+  cache:
+    key: "$CI_JOB_NAME"
+    paths:
+      - ".*.cache"
+
+      - "theories/*.glob"
+      - "theories/*.vo*"
+      - "theories/.*.aux"
+
+coq-8.12: {<<: *build, image: "skeuchel/coq:8.12"}
+coq-8.13: {<<: *build, image: "skeuchel/coq:8.13"}
