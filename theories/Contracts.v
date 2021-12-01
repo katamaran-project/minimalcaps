@@ -53,6 +53,9 @@ Open Scope string_scope.
 Open Scope ctx_scope.
 Open Scope Z_scope.
 
+Inductive PurePredicate : Set :=
+.
+
 Inductive Predicate : Set :=
   ptsreg
 | ptsto
@@ -64,16 +67,27 @@ Inductive Predicate : Set :=
 Section TransparentObligations.
   Local Set Transparent Obligations.
 
+  Derive NoConfusion for PurePredicate.
   Derive NoConfusion for Predicate.
 
 End TransparentObligations.
 
+Derive EqDec for PurePredicate.
 Derive EqDec for Predicate.
 
 Module Export MinCapsAssertionKit <:
   (AssertionKit MinCapsTermKit MinCapsProgramKit).
 
   Export MinCapsProgramKit.
+
+  Definition 𝑷 := PurePredicate.
+  Definition 𝑷_Ty (p : 𝑷) : Ctx Ty :=
+    match p with
+    end.
+  Definition 𝑷_inst (p : 𝑷) : abstract Lit (𝑷_Ty p) Prop :=
+    match p with
+    end.
+  Instance 𝑷_eq_dec : EqDec 𝑷 := PurePredicate_eqdec.
 
   Definition 𝑯 := Predicate.
   Definition 𝑯_Ty (p : 𝑯) : Ctx Ty :=
