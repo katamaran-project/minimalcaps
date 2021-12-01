@@ -44,6 +44,7 @@ Module MinCapsValueKit <: ValueKit.
 
   Module typekit := MinCapsTypeKit.
   Module Export TY := Syntax.Types.Types typekit.
+  Import NameResolution.
 
   Notation ty_hv := (ty_enum regname).
   Notation ty_lv := (ty_enum regname).

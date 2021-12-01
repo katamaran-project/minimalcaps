@@ -380,8 +380,8 @@ Module MinCapsModel.
              end
       end.
 
-    Definition luser_inst `{sailRegG Σ} `{invG Σ} (p : Predicate) (ts : Env Lit (MinCapsAssertionKit.𝑷_Ty p)) (mG : memG Σ) : iProp Σ :=
-      (match p return Env Lit (MinCapsAssertionKit.𝑷_Ty p) -> iProp Σ with
+    Definition luser_inst `{sailRegG Σ} `{invG Σ} (p : Predicate) (ts : Env Lit (MinCapsAssertionKit.𝑯_Ty p)) (mG : memG Σ) : iProp Σ :=
+      (match p return Env Lit (MinCapsAssertionKit.𝑯_Ty p) -> iProp Σ with
       | ptsreg => fun ts => MinCaps_ptsreg (env_head (env_tail ts)) (env_head ts)
       | ptsto => fun ts => mapsto (hG := mc_ghG (mcMemG := mG)) (env_head (env_tail ts)) (DfracOwn 1) (env_head ts)
       | safe => fun ts => MinCaps_safe (mG := mG) (env_head ts)
@@ -393,7 +393,7 @@ Module MinCapsModel.
     Proof. destruct w; simpl; rewrite fixpoint_MinCaps_safe1_eq; simpl; first apply _.
            destruct c; destruct cap_permission; apply _. Qed.
 
-    Definition lduplicate_inst `{sailRegG Σ} `{invG Σ} (p : Predicate) (ts : Env Lit (MinCapsAssertionKit.𝑷_Ty p)) :
+    Definition lduplicate_inst `{sailRegG Σ} `{invG Σ} (p : Predicate) (ts : Env Lit (MinCapsAssertionKit.𝑯_Ty p)) :
       forall (mG : memG Σ),
         is_duplicable p = true ->
         (luser_inst p ts mG) ⊢ (luser_inst p ts mG ∗ luser_inst p ts mG).

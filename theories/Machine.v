@@ -188,6 +188,7 @@ End MinCapsTermKit.
 
 Module MinCapsProgramKit <: (ProgramKit MinCapsTermKit).
   Module Export TM := Terms MinCapsTermKit.
+  Import NameResolution.
 
   Local Coercion stm_exp : Exp >-> Stm.
 

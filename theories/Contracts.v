@@ -75,8 +75,8 @@ Module Export MinCapsAssertionKit <:
 
   Export MinCapsProgramKit.
 
-  Definition 𝑷 := Predicate.
-  Definition 𝑷_Ty (p : 𝑷) : Ctx Ty :=
+  Definition 𝑯 := Predicate.
+  Definition 𝑯_Ty (p : 𝑯) : Ctx Ty :=
     match p with
     | ptsreg => [ty_enum regname, ty_word]
     | ptsto => [ty_addr, ty_memval]
@@ -84,7 +84,7 @@ Module Export MinCapsAssertionKit <:
     | subperm => [ty_perm, ty_perm]
     | dummy => [ty_cap]
     end.
-  Instance 𝑷_is_dup : IsDuplicable Predicate := {
+  Instance 𝑯_is_dup : IsDuplicable Predicate := {
     is_duplicable p :=
       match p with
       | ptsreg => false
@@ -94,7 +94,7 @@ Module Export MinCapsAssertionKit <:
       | dummy => false
       end
     }.
-  Instance 𝑷_eq_dec : EqDec 𝑷 := Predicate_eqdec.
+  Instance 𝑯_eq_dec : EqDec 𝑯 := Predicate_eqdec.
 End MinCapsAssertionKit.
 
 Module MinCapsSymbolicContractKit <:
