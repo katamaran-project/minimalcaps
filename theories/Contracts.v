@@ -116,7 +116,7 @@ Module MinCapsSymbolicContractKit <:
   Module Export ASS := Assertions MinCapsTermKit MinCapsProgramKit MinCapsAssertionKit.
 
   Local Notation "r '↦' t" := (asn_chunk (chunk_ptsreg r t)) (at level 100).
-  Local Notation "p '✱' q" := (asn_sep p q) (at level 150).
+  Local Notation "p '∗' q" := (asn_sep p q) (at level 150).
 
   Open Scope env_scope.
 
@@ -143,51 +143,46 @@ Module MinCapsSymbolicContractKit <:
 
   (* Arguments asn_prop [_] & _. *)
 
+  Definition sep_contract_logvars (Δ : PCtx) (Σ : LCtx) : LCtx :=
+    ctx_map (fun '(x::σ) => x::σ) Δ ▻▻ Σ.
+
+  Definition create_localstore (Δ : PCtx) (Σ : LCtx) : SStore Δ (sep_contract_logvars Δ Σ) :=
+    (env_tabulate (fun '(x::σ) xIn =>
+                     @term_var
+                       (sep_contract_logvars Δ Σ)
+                       x
+                       σ
+                       (inctx_cat_left Σ (inctx_map (fun '(y::τ) => y::τ) xIn)))).
+
+
   (* regInv(r) = ∃ w : word. r ↦ w * safe(w) *)
   Definition regInv {Σ} (r : RegName) (w : string) : Assertion Σ :=
     asn_exist w ty_word
-              (term_lit (ty_enum regname) r ↦r (@term_var _ _ _ inctx_zero) ✱
+              (term_lit (ty_enum regname) r ↦r (@term_var _ _ _ inctx_zero) ∗
                 asn_safe (@term_var _ _ _ inctx_zero)).
 
   (* regInv(r) = ∃ c : cap. r ↦ c * csafe(c) *)
   Definition regInvCap {Σ} (r : Reg ty_cap) : Assertion Σ :=
     asn_exist "c" ty_cap
-              (r ↦ term_var "c" ✱
+              (r ↦ term_var "c" ∗
                  asn_csafe (term_var "c")).
 
-  (* machInv = regInv(r1) * regInv(r2) * regInv(r3) * regInv(r4) * regInvCap(pc) *)
-  Definition machInv {Σ} : Assertion Σ :=
-    (regInv R0 "w0") ✱ (regInv R1 "w1") ✱ (regInvCap pc).
+  (* mach_inv = regInv(r1) * regInv(r2) * regInv(r3) * regInv(r4) * regInvCap(pc) *)
+  Definition mach_inv {Σ} : Assertion Σ :=
+    (regInv R0 "w0") ∗ (regInv R1 "w1") ∗ (regInvCap pc).
     (* ✱ (regInv R2 "w2") ✱ (regInv R3 "w3") *)
 
   (*
-     @pre machInv;
-     @post machInv;
+     @pre mach_inv;
+     @post mach_inv;
      τ f(Δ...) *)
-  Definition machInv_contract {Δ τ} (localstore : SStore Δ Δ) : SepContract Δ τ :=
-    {| sep_contract_logic_variables := Δ;
-       sep_contract_localstore      := localstore;
-       sep_contract_precondition    := machInv;
-       sep_contract_result          := "_";
-       sep_contract_postcondition   := machInv;
+  Definition mach_inv_contract {Δ τ} : SepContract Δ τ :=
+    {| sep_contract_logic_variables := sep_contract_logvars Δ ε;
+       sep_contract_localstore      := create_localstore Δ ε;
+       sep_contract_precondition    := mach_inv;
+       sep_contract_result          := "result_mach_inv";
+       sep_contract_postcondition   := mach_inv;
     |}.
-
-  (* TODO: fix this, should be possible to create localstore that only contains vars from logic vars env? (keep counter to know at which index a term_var is in the env) *)
-  (* Print term_var. *)
-  (* Fixpoint create_localstore (Δ : PCtx) : SStore Δ Δ := *)
-  (*   env_tabulate (fun '(x :: σ) xIn => *)
-  (*                   @term_var *)
-  (*                     (sep_contract_pun_logvars Δ Δ) *)
-  (*                     (𝑿to𝑺 x) *)
-  (*                     σ *)
-  (*                     (inctx_cat_left Δ (inctx_map (fun '(y :: τ) => (𝑿to𝑺 y::τ)) xIn))). *)
-
-  (* Fixpoint create_localstore (Δ : PCtx) : SStore Δ Δ := *)
-  (*   match Δ with *)
-  (*   | ε => env_nil *)
-  (*   | ε ▻ (n , t) => [@term_var Δ n t {| inctx_at := 0; inctx_valid := ctx_nth_is Δ 0 (n , t) |}]%arg *)
-  (*   | Σ ▻ (n , t) => (env_snoc (create_localstore Σ) (n , t) (@term_var _ _ _ inctx_zero ))%arg *)
-  (*   end. *)
 
   Definition SepContractFun {Δ τ} (f : Fun Δ τ) : Type :=
     SepContract Δ τ.
@@ -204,7 +199,7 @@ Module MinCapsSymbolicContractKit <:
        sep_contract_precondition    := term_var "rreg" ↦r term_var "w";
        sep_contract_result          := "result_read_reg";
        sep_contract_postcondition   :=
-         asn_eq (term_var "result_read_reg") (term_var "w") ✱
+         asn_eq (term_var "result_read_reg") (term_var "w") ∗
                 term_var "rreg" ↦r term_var "w";
     |}.
 
@@ -215,8 +210,8 @@ Module MinCapsSymbolicContractKit <:
        sep_contract_result          := "result_read_reg_cap";
        sep_contract_postcondition   :=
          asn_exist "c" ty_cap
-                   (asn_eq (term_var "result_read_reg_cap") (term_var "c") ✱
-                           asn_eq (term_var "w") (term_inr (term_var "c")) ✱
+                   (asn_eq (term_var "result_read_reg_cap") (term_var "c") ∗
+                           asn_eq (term_var "w") (term_inr (term_var "c")) ∗
                            term_var "creg" ↦r (term_var "w"));
     |}.
 
@@ -227,8 +222,8 @@ Module MinCapsSymbolicContractKit <:
        sep_contract_result          := "result_read_reg_num";
        sep_contract_postcondition   :=
          asn_exist "i" ty_int
-                   (asn_eq (term_var "result_read_reg_num") (term_var "i") ✱
-                           asn_eq (term_var "w") (term_inl (term_var "i")) ✱
+                   (asn_eq (term_var "result_read_reg_num") (term_var "i") ∗
+                           asn_eq (term_var "w") (term_inl (term_var "i")) ∗
                            term_var "nreg" ↦r term_var "w");
     |}.
 
@@ -238,7 +233,7 @@ Module MinCapsSymbolicContractKit <:
        sep_contract_precondition    := asn_exist "old_word" ty_word (term_var "wreg" ↦r term_var "old_word");
        sep_contract_result          := "result_write_reg";
        sep_contract_postcondition   :=
-         asn_eq (term_var "result_write_reg") (term_lit ty_unit tt) ✱
+         asn_eq (term_var "result_write_reg") (term_lit ty_unit tt) ∗
                 term_var "wreg" ↦r term_var "w";
     |}.
 
@@ -248,7 +243,7 @@ Module MinCapsSymbolicContractKit <:
        sep_contract_precondition    := pc ↦ term_var "opc";
        sep_contract_result          := "result_next_pc";
        sep_contract_postcondition   :=
-         pc ↦ term_var "opc" ✱
+         pc ↦ term_var "opc" ∗
             asn_match_cap (term_var "opc") "perm" "beg" "end" "cur"
             (asn_eq
                (term_var "result_next_pc")
@@ -262,23 +257,23 @@ Module MinCapsSymbolicContractKit <:
   Definition sep_contract_update_pc : SepContract ctx_nil ty_unit :=
     {| sep_contract_logic_variables := ["opc" ∶ ty_cap];
        sep_contract_localstore      := env_nil;
-       sep_contract_precondition    := pc ↦ term_var "opc" ✱ asn_csafe (term_var "opc");
+       sep_contract_precondition    := pc ↦ term_var "opc" ∗ asn_csafe (term_var "opc");
        sep_contract_result          := "result_update_pc";
        sep_contract_postcondition   :=
-         asn_eq (term_var "result_update_pc") (term_lit ty_unit tt) ✱
+         asn_eq (term_var "result_update_pc") (term_lit ty_unit tt) ∗
                 asn_exist "npc" ty_cap
-                (pc ↦ term_var "npc" ✱ asn_csafe (term_var "npc"));
+                (pc ↦ term_var "npc" ∗ asn_csafe (term_var "npc"));
     |}.
 
   Definition sep_contract_add_pc : SepContract ["offset" ∶ ty_int] ty_unit :=
     {| sep_contract_logic_variables := ["opc" ∶ ty_cap, "offset" ∶ ty_int];
        sep_contract_localstore      := [term_var "offset"]%arg;
-       sep_contract_precondition    := pc ↦ term_var "opc" ✱ asn_csafe (term_var "opc");
+       sep_contract_precondition    := pc ↦ term_var "opc" ∗ asn_csafe (term_var "opc");
        sep_contract_result          := "result_add_pc";
        sep_contract_postcondition   :=
-         asn_eq (term_var "result_add_pc") (term_lit ty_unit tt) ✱
+         asn_eq (term_var "result_add_pc") (term_lit ty_unit tt) ∗
                 asn_exist "npc" ty_cap
-                (pc ↦ term_var "npc" ✱ asn_csafe (term_var "npc"));
+                (pc ↦ term_var "npc" ∗ asn_csafe (term_var "npc"));
     |}.
 
   Definition sep_contract_read_mem : SepContract ["c" ∶ ty_cap ] ty_memval :=
@@ -287,16 +282,16 @@ Module MinCapsSymbolicContractKit <:
        sep_contract_precondition    := asn_csafe (term_var "c");
        sep_contract_result          := "read_mem_result";
        sep_contract_postcondition   :=
-         asn_csafe (term_var "c") ✱ asn_safe (term_var "read_mem_result")
+         asn_csafe (term_var "c") ∗ asn_safe (term_var "read_mem_result")
     |}.
 
   Definition sep_contract_write_mem : SepContract ["c" ∶ ty_cap, "v" ∶ ty_memval ] ty_unit :=
     {| sep_contract_logic_variables := ["c" ∶ ty_cap, "v" ∶ ty_memval];
        sep_contract_localstore      := [term_var "c", term_var "v"]%arg;
-       sep_contract_precondition    := asn_safe (term_var "v") ✱ asn_csafe (term_var "c");
+       sep_contract_precondition    := asn_safe (term_var "v") ∗ asn_csafe (term_var "c");
        sep_contract_result          := "write_mem_result";
        sep_contract_postcondition   :=
-         asn_csafe (term_var "c") ✱ asn_eq (term_var "write_mem_result") (term_lit ty_unit tt);
+         asn_csafe (term_var "c") ∗ asn_eq (term_var "write_mem_result") (term_lit ty_unit tt);
     |}.
 
   Definition sep_contract_read_allowed : SepContract ["p" ∶ ty_perm ] ty_bool :=
@@ -350,144 +345,144 @@ Module MinCapsSymbolicContractKit <:
     |}.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_jr(lv : lv) *)
   Definition sep_contract_exec_jr : SepContractFun exec_jr :=
-    machInv_contract [term_var "lv"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_jalr(lv1 : lv, lv2 : lv) *)
   Definition sep_contract_exec_jalr : SepContractFun exec_jalr :=
-    machInv_contract [term_var "lv1", term_var "lv2"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_j(offset : Z) *)
   Definition sep_contract_exec_j : SepContractFun exec_j :=
-    machInv_contract [term_var "offset"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_jal(lv : lv, offset : Z) *)
   Definition sep_contract_exec_jal : SepContractFun exec_jal :=
-    machInv_contract [term_var "lv", term_var "offset"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_bnez(lv : lv, immediate : Z) *)
   Definition sep_contract_exec_bnez : SepContractFun exec_bnez :=
-    machInv_contract [term_var "lv", term_var "immediate"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_mv(lv : lv, hv : ty_hv) *)
   Definition sep_contract_exec_mv : SepContractFun exec_mv :=
-    machInv_contract [term_var "lv", term_var "hv"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_ld(lv : lv, hv : memval, immediate : Z) *)
   Definition sep_contract_exec_ld : SepContractFun exec_ld :=
-    machInv_contract [term_var "lv", term_var "hv", term_var "immediate"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_sd(hv : memval, lv : lv, immediate : Z) *)
   Definition sep_contract_exec_sd : SepContractFun exec_sd :=
-    machInv_contract [term_var "hv", term_var "lv", term_var "immediate"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_lea(lv : lv, hv : ty_hv) *)
   Definition sep_contract_exec_lea : SepContractFun exec_lea :=
-    machInv_contract [term_var "lv", term_var "hv"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_restrict(lv : lv, hv : ty_hv) *)
   Definition sep_contract_exec_restrict : SepContractFun exec_restrict :=
-    machInv_contract [term_var "lv", term_var "hv"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_restricti(lv : lv, immediate : Z) *)
   Definition sep_contract_exec_restricti : SepContractFun exec_restricti :=
-    machInv_contract [term_var "lv", term_var "immediate"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_subseg(lv : lv, hv1 hv2 : ty_hv) *)
   Definition sep_contract_exec_subseg : SepContractFun exec_subseg :=
-    machInv_contract [term_var "lv", term_var "hv1", term_var "hv2"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_subsegi(lv : lv, hv : ty_hv, immediate : Z) *)
   Definition sep_contract_exec_subsegi : SepContractFun exec_subsegi :=
-    machInv_contract [term_var "lv", term_var "hv", term_var "immediate"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_addi(lv : lv, hv : hv, immediate : Z) *)
   Definition sep_contract_exec_addi : SepContractFun exec_addi :=
-    machInv_contract [term_var "lv", term_var "hv", term_var "immediate"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_add(lv1 : lv, lv2 : lv, lv3 : lv) *)
   Definition sep_contract_exec_add : SepContractFun exec_add :=
-    machInv_contract [term_var "lv1", term_var "lv2", term_var "lv3"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_sub(lv1 : lv, lv2 : lv, lv3 : lv) *)
   Definition sep_contract_exec_sub : SepContractFun exec_sub :=
-    machInv_contract [term_var "lv1", term_var "lv2", term_var "lv3"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_slt(lv1 : lv, lv2 : lv, lv3 : lv) *)
   Definition sep_contract_exec_slt : SepContractFun exec_slt :=
-    machInv_contract [term_var "lv1", term_var "lv2", term_var "lv3"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_slti(lv : lv, hv : hv, immediate : Z) *)
   Definition sep_contract_exec_slti : SepContractFun exec_slti :=
-    machInv_contract [term_var "lv", term_var "hv", term_var "immediate"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_sltu(lv1 : lv, lv2 : lv, lv3 : lv) *)
   Definition sep_contract_exec_sltu : SepContractFun exec_sltu :=
-    machInv_contract [term_var "lv1", term_var "lv2", term_var "lv3"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_sltiu(lv : lv, hv : hv, immediate : Z) *)
   Definition sep_contract_exec_sltiu : SepContractFun exec_sltiu :=
-    machInv_contract [term_var "lv", term_var "hv", term_var "immediate"]%arg.
+    mach_inv_contract.
 
   (*
       @pre true;
@@ -558,72 +553,72 @@ Module MinCapsSymbolicContractKit <:
     |}.
   
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_isptr(lv1 : lv, lv2 : lv) *)
   Definition sep_contract_exec_isptr : SepContractFun exec_isptr :=
-    machInv_contract [term_var "lv1", term_var "lv2"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_getp(lv1 : lv, lv2 : lv) *)
   Definition sep_contract_exec_getp : SepContractFun exec_getp :=
-    machInv_contract [term_var "lv1", term_var "lv2"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_getb(lv1 : lv, lv2 : lv) *)
   Definition sep_contract_exec_getb : SepContractFun exec_getb :=
-    machInv_contract [term_var "lv1", term_var "lv2"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_gete(lv1 : lv, lv2 : lv) *)
   Definition sep_contract_exec_gete : SepContractFun exec_gete :=
-    machInv_contract [term_var "lv1", term_var "lv2"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_geta(lv1 : lv, lv2 : lv) *)
   Definition sep_contract_exec_geta : SepContractFun exec_geta :=
-    machInv_contract [term_var "lv1", term_var "lv2"]%arg.
+    mach_inv_contract.
 
-  (* @pre machInv;
-     @post machInv;
+  (* @pre mach_inv;
+     @post mach_inv;
      bool exec_fail *)
   Definition sep_contract_exec_fail : SepContractFun exec_fail :=
-    machInv_contract env_nil.
+    mach_inv_contract.
 
-  (* @pre machInv;
-     @post machInv;
+  (* @pre mach_inv;
+     @post mach_inv;
      bool exec_ret *)
   Definition sep_contract_exec_ret : SepContractFun exec_ret :=
-    machInv_contract env_nil.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec_instr(i : instr) *)
   Definition sep_contract_exec_instr : SepContractFun exec_instr :=
-    machInv_contract [term_var "i"]%arg.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       bool exec *)
   Definition sep_contract_exec : SepContractFun exec :=
-    machInv_contract env_nil.
+    mach_inv_contract.
 
   (*
-      @pre machInv;
-      @post machInv;
+      @pre mach_inv;
+      @post mach_inv;
       unit loop *)
   Definition sep_contract_loop : SepContractFun loop :=
-    machInv_contract env_nil.
+    mach_inv_contract.
 
   Definition CEnv : SepContractEnv :=
     fun Δ τ f =>
@@ -676,7 +671,6 @@ Module MinCapsSymbolicContractKit <:
       | exec_instr      => Some sep_contract_exec_instr
       | exec            => Some sep_contract_exec
       | loop            => Some sep_contract_loop
-      | _               => None
       end.
 
   Lemma linted_cenv :
@@ -710,7 +704,7 @@ Module MinCapsSymbolicContractKit <:
        lemma_patterns        := [c', c]%arg;
        lemma_precondition    := asn_csafe c;
        lemma_postcondition   :=
-         asn_csafe c ✱
+         asn_csafe c ∗
          asn_csafe c';
     |}.
 
@@ -726,9 +720,9 @@ Module MinCapsSymbolicContractKit <:
     {| lemma_logic_variables := Σ;
        lemma_patterns        := [c', c]%arg;
        lemma_precondition    :=
-         asn_csafe c ✱ term_var "p'" <=ₚ term_var "p";
+         asn_csafe c ∗ term_var "p'" <=ₚ term_var "p";
        lemma_postcondition   :=
-         asn_csafe c ✱
+         asn_csafe c ∗
          asn_csafe c';
     |}.
 
@@ -744,15 +738,15 @@ Module MinCapsSymbolicContractKit <:
     {| lemma_logic_variables := Σ;
        lemma_patterns        := [c', c]%arg;
        lemma_precondition    :=
-         asn_csafe c ✱
-         asn_dummy c' ✱
+         asn_csafe c ∗
+         asn_dummy c' ∗
          asn_formula
          (formula_bool
             (term_binop binop_and
                         (term_binop binop_le (term_var "b") (term_var "b'"))
                         (term_binop binop_le (term_var "e'") (term_var "e"))));
        lemma_postcondition   :=
-         asn_csafe c ✱
+         asn_csafe c ∗
          asn_csafe c';
     |}.
 
@@ -813,8 +807,8 @@ Module MinCapsSymbolicContractKit <:
                             [term_var "p",
                              term_var "b",
                              term_var "e",
-                             term_var "address"]) ✱
-                   term_lit ty_perm R <=ₚ term_var "p" ✱
+                             term_var "address"]) ∗
+                   term_lit ty_perm R <=ₚ term_var "p" ∗
                    asn_within_bounds (term_var "address") (term_var "b") (term_var "e");
        sep_contract_result          := "rM_result";
        sep_contract_postcondition   :=
@@ -823,7 +817,7 @@ Module MinCapsSymbolicContractKit <:
                              term_var "b",
                              term_var "e",
                              term_var "address"])
-           ✱ asn_safe (term_var "rM_result")
+           ∗ asn_safe (term_var "rM_result")
     |}.
 
   Definition sep_contract_wM : SepContractFunX wM :=
@@ -831,13 +825,13 @@ Module MinCapsSymbolicContractKit <:
        sep_contract_localstore      := [term_var "address", term_var "new_value"]%arg;
        sep_contract_precondition    :=
          asn_safe (term_var "new_value")
-                  ✱ asn_csafe (term_record capability
+                  ∗ asn_csafe (term_record capability
                                            [term_var "p",
                                             term_var "b",
                                             term_var "e",
                                             term_var "address"])
-                  ✱ term_lit ty_perm RW <=ₚ term_var "p"
-                  ✱ asn_within_bounds (term_var "address") (term_var "b") (term_var "e");
+                  ∗ term_lit ty_perm RW <=ₚ term_var "p"
+                  ∗ asn_within_bounds (term_var "address") (term_var "b") (term_var "e");
        sep_contract_result          := "wM_result";
        sep_contract_postcondition   :=
          asn_csafe (term_record capability
@@ -845,7 +839,7 @@ Module MinCapsSymbolicContractKit <:
                              term_var "b",
                              term_var "e",
                              term_var "address"])
-           ✱ asn_eq (term_var "wM_result") (term_lit ty_unit tt)
+           ∗ asn_eq (term_var "wM_result") (term_lit ty_unit tt)
     |}.
 
   Definition sep_contract_dI : SepContractFunX dI :=
@@ -932,7 +926,7 @@ Local Ltac solve :=
 Local Notation "r '↦' t" := (chunk_ptsreg r t) (at level 100, only printing).
 Local Notation "r '↦r' t" := (chunk_user ptsreg (env_nil ► (ty_enum regname ↦ r) ► (ty_word ↦ t))) (at level 100, only printing).
 Local Notation "a '↦m' t" := (chunk_user ptsto (env_nil ► (ty_addr ↦ a) ► (ty_int ↦ t))) (at level 100, only printing).
-Local Notation "p '✱' q" := (asn_sep p q) (at level 150).
+Local Notation "p '∗' q" := (asn_sep p q) (at level 150).
 Local Notation safew w := (chunk_user safe (env_nil ► (ty_word ↦ w))).
 Local Notation asn_csafe c := (asn_chunk (chunk_user safe (env_nil ► (ty_word ↦ (term_inr c))))).
 Local Notation asn_dummy c := (asn_chunk (chunk_user dummy (env_nil ► (ty_cap ↦ c)))).
@@ -956,103 +950,11 @@ Definition ValidContract {Δ τ} (f : Fun Δ τ) : Prop :=
   | None => False
   end.
 
-(* TODO: remove this debugging contract and function *)
-(* pre: csafe(c) ∧ within_range(b', e', b, e)
-   post: csafe(c')
-   unit to_debug(c', c : Cap) *)
-Definition sep_contract_to_debug : SepContract ["c'" ∶ ty_cap, "c" ∶ ty_cap] ty_unit :=
-  let Σ : LCtx := ["p" ∶ ty_perm, "b" ∶ ty_addr, "b'" ∶ ty_addr, "e" ∶ ty_addr, "e'" ∶ ty_addr, "a" ∶ ty_addr]%ctx in
-  let c  : Term Σ _ := term_record capability [term_var "p", term_var "b", term_var "e", term_var "a"] in
-  let c' : Term Σ _ := term_record capability [term_var "p", term_var "b'", term_var "e'", term_var "a"] in
-  {| sep_contract_logic_variables := Σ;
-     sep_contract_localstore      := [c', c]%arg;
-     sep_contract_precondition    :=
-         asn_csafe c ✱
-         asn_formula
-         (formula_bool
-            (term_binop binop_and
-                        (term_binop binop_le (term_var "b") (term_var "b'"))
-                        (term_binop binop_le (term_var "e'") (term_var "e"))));
-     sep_contract_result          := "result";
-     sep_contract_postcondition   :=
-       asn_eq (term_var "result") (term_lit ty_unit tt) ✱
-              asn_csafe (sub_term c sub_wk1) ✱
-              asn_csafe (sub_term c' sub_wk1);
-  |}.
-
-Definition fun_to_debug : Stm ["c'" ∶ ty_cap, "c" ∶ ty_cap] ty_unit :=
-  use lemma gen_dummy [exp_var "c'"] ;;
-  use lemma safe_within_range [exp_var "c'", exp_var "c"] ;;
-  stm_lit ty_unit tt.
-
-Lemma valid_contract_to_debug : ValidContractReflect sep_contract_to_debug fun_to_debug.
-Proof. (* compute - [SPath.prune]. *) reflexivity. Qed.
-
-Lemma valid_contract_read_reg : ValidContract read_reg.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_read_reg_cap : ValidContract read_reg_cap.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_read_reg_num : ValidContract read_reg_num.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_write_reg : ValidContract write_reg.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_next_pc : ValidContract next_pc.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_add_pc : ValidContract add_pc.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_update_pc : ValidContract update_pc.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_read_mem : ValidContract read_mem.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_write_mem : ValidContract write_mem.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_read_allowed : ValidContract read_allowed.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_write_allowed : ValidContract write_allowed.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_upper_bound : ValidContract upper_bound.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_within_bounds : ValidContract within_bounds.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_perm_to_bits : ValidContract perm_to_bits.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_perm_from_bits : ValidContract perm_from_bits.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_is_sub_perm : ValidContract is_sub_perm.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_is_within_range : ValidContract is_within_range.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_abs : ValidContract abs.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_jr : ValidContract exec_jr.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_j : ValidContract exec_j.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_jal : ValidContract exec_jal.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_jalr : ValidContract exec_jalr.
-Proof. Time reflexivity. Qed.
+Lemma ValidContractsFun : forall {Δ τ} (f : Fun Δ τ),
+    ValidContract f.
+Proof.
+  destruct f; reflexivity.
+Qed.
 
 (*
 Ltac debug_satisfy_forget_post :=
@@ -1087,79 +989,6 @@ Ltac debug_satisfy_eval_cbv :=
 
 Close Scope exp.
 Close Scope env.
-*)
-
-Lemma valid_contract_exec_bnez : ValidContract exec_bnez.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_mv : ValidContract exec_mv.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_ld : ValidContract exec_ld.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_sd : ValidContract exec_sd.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_lea : ValidContract exec_lea.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_restrict : ValidContract exec_restrict.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_restricti : ValidContract exec_restricti.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_subseg : ValidContract exec_subseg.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_subsegi : ValidContract exec_subsegi.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_addi : ValidContract exec_addi.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_add : ValidContract exec_add.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_sub : ValidContract exec_sub.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_slt : ValidContract exec_slt.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_slti : ValidContract exec_slti.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_sltu : ValidContract exec_sltu.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_sltiu : ValidContract exec_sltiu.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_isptr : ValidContract exec_isptr.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_getp : ValidContract exec_getp.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_getb : ValidContract exec_getb.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_gete : ValidContract exec_gete.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_geta : ValidContract exec_geta.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_fail : ValidContract exec_fail.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_ret : ValidContract exec_ret.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_exec_instr : ValidContract exec_instr.
-Proof. Time reflexivity. Qed.
 
 Definition debug_config : Config :=
   {| config_debug_function _ _ f :=
@@ -1168,9 +997,4 @@ Definition debug_config : Config :=
        | _        => false
        end
   |}.
-
-Lemma valid_contract_exec : ValidContract MinCapsTermKit.exec.
-Proof. Time reflexivity. Qed.
-
-Lemma valid_contract_loop : ValidContract loop.
-Proof. Time reflexivity. Qed.
+*)
