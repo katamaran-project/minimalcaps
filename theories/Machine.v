@@ -82,8 +82,6 @@ Module MinCapsTermKit <: TermKit.
                            "e"   ∶ ty_addr
                           ] ty_bool
   | within_bounds   : Fun ["c"   ∶ ty_cap ] ty_bool
-  | compute_rv      : Fun ["rv" ∶ ty_rv] ty_word
-  | compute_rv_num  : Fun ["rv" ∶ ty_rv] ty_int
   | perm_to_bits    : Fun ["p" ∶ ty_perm] ty_int
   | perm_from_bits  : Fun ["i" ∶ ty_int] ty_perm
   | is_sub_perm     : Fun ["p" ∶ ty_perm, "p'" ∶ ty_perm] ty_bool
@@ -669,18 +667,6 @@ Module MinCapsProgramKit <: (ProgramKit MinCapsTermKit).
        call update_pc ;;
        stm_lit ty_bool true).
 
-    Definition fun_compute_rv : Stm [rv ∶ ty_rv] ty_word :=
-      stm_match_sum rv
-                    "r" (call read_reg r)
-                    "n" (stm_exp (exp_inl (exp_var n))).
-
-    Definition fun_compute_rv_num : Stm [rv ∶ ty_rv] ty_int :=
-      let: w :: ty_word := call compute_rv rv in
-      match: w with
-      | inl i => stm_exp i
-      | inr c => fail "Err [read_reg_num]: expect register to hold a number"
-      end.
-
     Definition fun_exec_fail : Stm ε ty_bool :=
       fail "machine failed".
 
@@ -855,8 +841,6 @@ Module MinCapsProgramKit <: (ProgramKit MinCapsTermKit).
     | exec_fail       => fun_exec_fail
     | exec_ret        => fun_exec_ret
     | exec_instr      => fun_exec_instr
-    | compute_rv      => fun_compute_rv
-    | compute_rv_num  => fun_compute_rv_num
     | exec            => fun_exec
     | loop            => fun_loop
     end.
