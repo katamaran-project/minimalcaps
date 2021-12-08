@@ -54,13 +54,13 @@ Open Scope ctx_scope.
 Open Scope Z_scope.
 
 Inductive PurePredicate : Set :=
+| subperm
 .
 
 Inductive Predicate : Set :=
   ptsreg
 | ptsto
 | safe
-| subperm
 | dummy
 .
 
@@ -83,10 +83,25 @@ Module Export MinCapsAssertionKit <:
   Definition 𝑷 := PurePredicate.
   Definition 𝑷_Ty (p : 𝑷) : Ctx Ty :=
     match p with
+    | subperm => [ty_perm, ty_perm]
     end.
+
   Definition 𝑷_inst (p : 𝑷) : abstract Lit (𝑷_Ty p) Prop :=
     match p with
+    | subperm => fun (p p' : Lit ty_perm) =>
+                   match p with
+                   | O => True
+                   | R => match p' with
+                          | O => False
+                          | _ => True
+                          end
+                   | RW => match p' with
+                           | RW => True
+                           | _ => False
+                           end
+                   end
     end.
+
   Instance 𝑷_eq_dec : EqDec 𝑷 := PurePredicate_eqdec.
 
   Definition 𝑯 := Predicate.
@@ -95,7 +110,6 @@ Module Export MinCapsAssertionKit <:
     | ptsreg => [ty_enum regname, ty_word]
     | ptsto => [ty_addr, ty_memval]
     | safe => [ty_word]
-    | subperm => [ty_perm, ty_perm]
     | dummy => [ty_cap]
     end.
   Instance 𝑯_is_dup : IsDuplicable Predicate := {
@@ -104,7 +118,6 @@ Module Export MinCapsAssertionKit <:
       | ptsreg => false
       | ptsto => false
       | safe => true
-      | subperm => true
       | dummy => false
       end
     }.
@@ -120,9 +133,10 @@ Module MinCapsSymbolicContractKit <:
 
   Open Scope env_scope.
 
+  Local Notation "p '<=ₚ' p'" := (asn_formula (formula_user subperm (env_nil ► (ty_perm ↦ p) ► (ty_perm ↦ p')))) (at level 100).
+
   Local Notation "r '↦r' t" := (asn_chunk (chunk_user ptsreg (env_nil ► (ty_enum regname ↦ r) ► (ty_word ↦ t)))) (at level 100).
   Local Notation "a '↦m' t" := (asn_chunk (chunk_user ptsto (env_nil ► (ty_addr ↦ a) ► (ty_int ↦ t)))) (at level 100).
-  Local Notation "p '<=ₚ' p'" := (asn_chunk (chunk_user subperm (env_nil ► (ty_perm ↦ p) ► (ty_perm ↦ p')))) (at level 100).
   Local Notation asn_match_option T opt xl alt_inl alt_inr := (asn_match_sum T ty_unit opt xl alt_inl "_" alt_inr).
   Local Notation asn_safe w := (asn_chunk (chunk_user safe (env_nil ► (ty_word ↦ w)))).
   Local Notation asn_csafe c := (asn_chunk (chunk_user safe (env_nil ► (ty_word ↦ (term_inr c))))).
@@ -750,27 +764,6 @@ Module MinCapsSymbolicContractKit <:
          asn_csafe c';
     |}.
 
-  Definition lemma_sub_perm : SepLemma sub_perm :=
-    {| lemma_logic_variables := ["p" ∶ ty_perm, "p'" ∶ ty_perm];
-       lemma_patterns        := [term_var "p", term_var "p'"]%arg;
-       lemma_precondition    := asn_true;
-       lemma_postcondition   :=
-         asn_match_enum permission (term_var "p")
-                        (fun p => match p with
-                               | O => term_var "p" <=ₚ term_var "p'"
-                               | R => asn_match_enum permission (term_var "p'")
-                                                    (fun p' => match p' with
-                                                            | O => asn_true
-                                                            | _ => term_var "p" <=ₚ term_var "p'"
-                                                            end)
-                               | RW => asn_match_enum permission (term_var "p'")
-                                                    (fun p' => match p' with
-                                                            | RW => term_var "p" <=ₚ term_var "p'"
-                                                            | _ => asn_true
-                                                            end)
-                               end);
-    |}.
-
   (*
     @pre true
     @post safe(i)
@@ -874,7 +867,6 @@ Module MinCapsSymbolicContractKit <:
         | safe_sub_perm          => lemma_safe_sub_perm
         | safe_within_range      => lemma_safe_within_range
         | int_safe               => lemma_int_safe
-        | sub_perm               => lemma_sub_perm
         | gen_dummy              => lemma_gen_dummy
       end.
 
@@ -905,6 +897,7 @@ Local Ltac solve :=
        | |- forall _, _ => cbn [Lit snd]; intro
        | |- False \/ _ =>  right
        | |- _ \/ False =>  left
+       | |- _ \/ exists _, _ =>  left (* avoid existentials, bit fishy but fine for now *)
        | |- _ /\ _ => constructor
        | |- VerificationCondition _ =>
          constructor;
@@ -946,14 +939,15 @@ Local Notation asn_within_bounds a b e :=
 
 Definition ValidContract {Δ τ} (f : Fun Δ τ) : Prop :=
   match CEnv f with
-  | Some c => ValidContractReflect c (Pi f)
+  (* | Some c => ValidContractReflect c (Pi f) *)
+  | Some c => SMut.ValidContract c (Pi f)
   | None => False
   end.
 
 Lemma ValidContractsFun : forall {Δ τ} (f : Fun Δ τ),
     ValidContract f.
 Proof.
-  destruct f; reflexivity.
+  destruct f; compute; solve.
 Qed.
 
 (*

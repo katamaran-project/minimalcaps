@@ -135,7 +135,6 @@ Module MinCapsTermKit <: TermKit.
   | safe_sub_perm              : Lem ["c'" ∶ ty_cap, "c" ∶ ty_cap]
   | safe_within_range          : Lem ["c'" ∶ ty_cap, "c" ∶ ty_cap]
   | int_safe                   : Lem ["i" ∶ ty_int]
-  | sub_perm                   : Lem ["p" ∶ ty_perm, "p'" ∶ ty_perm]
   | gen_dummy                  : Lem ["c" ∶ ty_cap]
   .
 
@@ -544,17 +543,14 @@ Module MinCapsProgramKit <: (ProgramKit MinCapsTermKit).
     Definition fun_is_sub_perm : Stm ["p" ∶ ty_perm, "p'" ∶ ty_perm] ty_bool :=
       match: exp_var "p" in permission with
       | O =>
-        use lemma sub_perm [exp_var "p", exp_var "p'"] ;;
         stm_lit ty_bool true
       | R => match: exp_var "p'" in permission with
             | O => stm_lit ty_bool false
             | _ =>
-              use lemma sub_perm [exp_var "p", exp_var "p'"] ;;
               stm_lit ty_bool true
             end
       | RW => match: exp_var "p'" in permission with
              | RW =>
-               use lemma sub_perm [exp_var "p", exp_var "p'"] ;;
                stm_lit ty_bool true
             | _ => stm_lit ty_bool false
             end
