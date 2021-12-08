@@ -86,20 +86,25 @@ Module Export MinCapsAssertionKit <:
     | subperm => [ty_perm, ty_perm]
     end.
 
+  Definition decide_subperm (p p' : Lit ty_perm) : bool :=
+    match p with
+    | O => true
+    | R => match p' with
+           | O => false
+           | _ => true
+           end
+    | RW => match p' with
+            | RW => true
+            | _ => false
+            end
+    end.
+
+  Definition Subperm (p p' : Lit ty_perm) : Prop :=
+    decide_subperm p p' = true.
+
   Definition 𝑷_inst (p : 𝑷) : abstract Lit (𝑷_Ty p) Prop :=
     match p with
-    | subperm => fun (p p' : Lit ty_perm) =>
-                   match p with
-                   | O => True
-                   | R => match p' with
-                          | O => False
-                          | _ => True
-                          end
-                   | RW => match p' with
-                           | RW => True
-                           | _ => False
-                           end
-                   end
+    | subperm => Subperm
     end.
 
   Instance 𝑷_eq_dec : EqDec 𝑷 := PurePredicate_eqdec.
@@ -877,6 +882,46 @@ Module MinCapsSymbolicContractKit <:
     intros ? ? []; try constructor.
   Qed.
 
+  Equations(noeqns) simplify_subperm {Σ} (p q : Term Σ ty_perm) : option (List Formula Σ) :=
+  | term_lit p | term_lit q := if decide_subperm p q then Some nil else None;
+  | term_lit O | q          := Some nil;
+  | p          | q          :=
+    let ts := env_nil ► (ty_perm ↦ p) ► (ty_perm ↦ q) in
+    Some (cons (formula_user subperm ts) nil).
+
+  Definition simplify_user {Σ} (p : 𝑷) : Env (Term Σ) (𝑷_Ty p) -> option (List Formula Σ) :=
+    match p with
+    | subperm => fun ts =>
+                   let (ts,q) := snocView ts in
+                   let (ts,p) := snocView ts in
+                   simplify_subperm p q
+    end.
+
+  Definition simplify_formula {Σ} (fml : Formula Σ) : option (List Formula Σ) :=
+    match fml with
+    | formula_user p ts => simplify_user p ts
+    | _                 => Some (cons fml nil)
+    end.
+
+  Import base.
+  Definition simplify_all {Σ} (g : Formula Σ -> option (List Formula Σ)) :=
+    fix simplify_all (fmls k : List Formula Σ) {struct fmls} : option (List Formula Σ) :=
+      match fmls with
+      | nil => Some k
+      | cons fml0 fmls =>
+        ks ← simplify_all fmls k ;
+        k0 ← g fml0 ;
+        Some (app k0 ks)
+      end.
+
+  Definition solver : Solver :=
+    fun w fmls => option_map (fun l => existT w (tri_id , l)) (simplify_all simplify_formula fmls nil).
+  Definition solver_spec : SolverSpec solver.
+  Admitted.
+
+  Definition solver_user : option SoundSolver :=
+    Some (exist SolverSpec solver solver_spec).
+
 End MinCapsSymbolicContractKit.
 
 Module MinCapsMutators :=
@@ -939,15 +984,15 @@ Local Notation asn_within_bounds a b e :=
 
 Definition ValidContract {Δ τ} (f : Fun Δ τ) : Prop :=
   match CEnv f with
-  (* | Some c => ValidContractReflect c (Pi f) *)
-  | Some c => SMut.ValidContract c (Pi f)
+  | Some c => ValidContractReflect c (Pi f)
+  (* | Some c => SMut.ValidContract c (Pi f) *)
   | None => False
   end.
 
 Lemma ValidContractsFun : forall {Δ τ} (f : Fun Δ τ),
     ValidContract f.
 Proof.
-  destruct f; compute; solve.
+  destruct f; reflexivity.
 Qed.
 
 (*

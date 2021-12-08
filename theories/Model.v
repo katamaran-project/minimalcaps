@@ -453,7 +453,7 @@ Module MinCapsModel.
       iSplit; [done|].
       do 2 rewrite MinCapsIrisHeapKit.fixpoint_MinCaps_safe1_eq.
       destruct p; destruct p'; trivial;
-        destruct Hp; contradiction.
+        destruct Hp; discriminate.
     Qed.
 
     Lemma safe_within_range_sound :
@@ -502,10 +502,7 @@ Module MinCapsModel.
                                                cap_begin := b;
                                                cap_end := e;
                                                cap_cursor := a |})
-                                          ∗ ⌜ match p with
-                                              | O => False
-                                              | _ => True
-                                              end ⌝ ∧ emp)
+                                          ∗ ⌜ Subperm R p ⌝ ∧ emp)
            ∗ ⌜is_true ((b <=? a)%Z && (a <=? e)%Z)⌝ ∧ emp)
         (stm_call_external rM es)
         (λ (v3 : Z + Capability) (δ' : CStore Γ),
@@ -520,7 +517,7 @@ Module MinCapsModel.
     intros a p b e.
     destruct p;
       iIntros (Heq) "[[#Hsafe [% %]] [% %]]";
-      try contradiction.
+      try discriminate.
     (* TODO: clean this up! *)
     - rewrite wp_unfold;
         unfold is_true in H2;
@@ -648,10 +645,7 @@ Module MinCapsModel.
                                                cap_begin := b;
                                                cap_end := e;
                                                cap_cursor := a |}))
-            ∗ ⌜ match p with
-                | RW => True
-                | _  => False
-                end ⌝ ∧ emp)
+            ∗ ⌜ Subperm RW p ⌝ ∧ emp)
            ∗ ⌜is_true ((b <=? a)%Z && (a <=? e)%Z)⌝ ∧ emp)
         (stm_call_external wM es)
         (λ (v3 : ()) (δ' : CStore Γ),
@@ -666,7 +660,7 @@ Module MinCapsModel.
       intros a w p b e.
       destruct p;
         iIntros (Heq) "[[[#Hwsafe #Hsafe] [% %]] [% %]]";
-        try contradiction.
+        try discriminate.
       clear H0 H1 H3.
       rewrite wp_unfold.
       iIntros (σ' ks1 ks n) "[Hregs Hmem]".
