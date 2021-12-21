@@ -38,7 +38,7 @@ From MinimalCaps Require Export
 Set Implicit Arguments.
 Import ctx.notations.
 Import ctx.resolution.
-Import EnvNotations.
+Import env.notations.
 Local Open Scope string_scope.
 
 Module MinCapsValueKit <: ValueKit.
@@ -175,10 +175,10 @@ Module MinCapsValueKit <: ValueKit.
 
   Definition 𝑹𝑭_Ty (R : 𝑹) : NCtx 𝑹𝑭 Ty :=
     match R with
-    | capability => [ "cap_permission" :: ty_perm,
-                      "cap_begin"      :: ty_addr,
-                      "cap_end"        :: ty_addr,
-                      "cap_cursor"     :: ty_addr
+    | capability => [ "cap_permission" ∷ ty_perm,
+                      "cap_begin"      ∷ ty_addr,
+                      "cap_end"        ∷ ty_addr,
+                      "cap_cursor"     ∷ ty_addr
                     ]
     end.
 
@@ -197,17 +197,17 @@ Module MinCapsValueKit <: ValueKit.
     match R  with
     | capability =>
       fun c=>
-        env_nil
-          ► ("cap_permission" :: ty_perm ↦ cap_permission c)
-          ► ("cap_begin"      :: ty_addr ↦ cap_begin c)
-          ► ("cap_end"        :: ty_addr ↦ cap_end c)
-          ► ("cap_cursor"     :: ty_addr ↦ cap_cursor c)
+        env.nil
+          ► ("cap_permission" ∷ ty_perm ↦ cap_permission c)
+          ► ("cap_begin"      ∷ ty_addr ↦ cap_begin c)
+          ► ("cap_end"        ∷ ty_addr ↦ cap_end c)
+          ► ("cap_cursor"     ∷ ty_addr ↦ cap_cursor c)
     end%env.
   Lemma 𝑹_fold_unfold : forall (R : 𝑹) (Kv: 𝑹𝑻 R),
       𝑹_fold R (𝑹_unfold R Kv) = Kv.
   Proof. now intros [] []. Qed.
   Lemma 𝑹_unfold_fold : forall (R : 𝑹) (Kv: NamedEnv Lit (𝑹𝑭_Ty R)),
       𝑹_unfold R (𝑹_fold R Kv) = Kv.
-  Proof. intros []; now apply Forall_forall. Qed.
+  Proof. intros []; now apply env.Forall_forall. Qed.
 
 End MinCapsValueKit.

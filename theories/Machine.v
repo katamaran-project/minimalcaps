@@ -41,7 +41,7 @@ From stdpp Require Import finite decidable.
 Set Implicit Arguments.
 Import ctx.notations.
 Import ctx.resolution.
-Import EnvNotations.
+Import env.notations.
 Open Scope string_scope.
 
 (*** TERMS ***)
@@ -224,7 +224,7 @@ Module MinCapsProgramKit <: (ProgramKit MinCapsTermKit).
   Notation stm_call_external := stm_foreign.
 
   Notation "'use' 'lemma' f args" := (stm_lemma f args%arg) (at level 10, f at next level) : exp_scope.
-  Notation "'use' 'lemma' f" := (stm_lemma f env_nil) (at level 10, f at next level) : exp_scope.
+  Notation "'use' 'lemma' f" := (stm_lemma f env.nil) (at level 10, f at next level) : exp_scope.
 
   (* NOTE: need to wrap s around parentheses when using this notation (not a real let binding!) *)
   Notation "'let*:' '[' perm ',' beg ',' en ',' cur ']' ':=' cap 'in' s" :=

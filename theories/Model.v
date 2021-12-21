@@ -72,9 +72,9 @@ Module MinCapsModel.
       | Env _ (ctx.snoc _ (MkB ?s _)) =>
         let id := string_to_ident s in
         let fr := fresh id in
-        destruct (snocView ι) as [ι fr];
+        destruct (env.snocView ι) as [ι fr];
         destruct_syminstance ι
-      | Env _ ctx.nil => destruct (nilView ι)
+      | Env _ ctx.nil => destruct (env.nilView ι)
       | _ => idtac
       end.
 
@@ -365,13 +365,13 @@ Module MinCapsModel.
       split; assumption.
     Qed.
 
-    Import EnvNotations.
+    Import env.notations.
 
     Definition luser_inst `{sailRegG Σ} `{invG Σ} (p : Predicate) (ts : Env Lit (MinCapsAssertionKit.𝑯_Ty p)) (mG : memG Σ) : iProp Σ :=
       (match p return Env Lit (MinCapsAssertionKit.𝑯_Ty p) -> iProp Σ with
-      | ptsreg => fun ts => MinCaps_ptsreg (env_head (env_tail ts)) (env_head ts)
-      | ptsto => fun ts => mapsto (hG := mc_ghG (mcMemG := mG)) (env_head (env_tail ts)) (DfracOwn 1) (env_head ts)
-      | safe => fun ts => MinCaps_safe (mG := mG) (env_head ts)
+      | ptsreg => fun ts => MinCaps_ptsreg (env.head (env.tail ts)) (env.head ts)
+      | ptsto => fun ts => mapsto (hG := mc_ghG (mcMemG := mG)) (env.head (env.tail ts)) (DfracOwn 1) (env.head ts)
+      | safe => fun ts => MinCaps_safe (mG := mG) (env.head ts)
       | dummy => fun ts => True%I
       end) ts.
 
@@ -475,7 +475,7 @@ Module MinCapsModel.
 
   Lemma dI_sound `{sg : sailG Σ} `{invG} {Γ es δ} :
     forall code : Lit ty_int,
-    evals es δ = env_snoc env_nil (MkB _ ty_int) code
+    evals es δ = env.snoc env.nil (MkB _ ty_int) code
     → ⊢ semTriple δ (⌜is_true true⌝ ∧ emp) (stm_call_external dI es)
           (λ (v : Lit ty_instr) (δ' : CStore Γ),
              (⌜is_true true⌝ ∧ emp) ∗ ⌜δ' = δ⌝).
@@ -494,7 +494,7 @@ Module MinCapsModel.
 
   Lemma rM_sound `{sg : sailG Σ} `{invG} {Γ es δ} :
     forall a (p : Lit ty_perm) (b e : Lit ty_addr),
-      evals es δ = env_snoc env_nil (MkB _ ty_addr) a
+      evals es δ = env.snoc env.nil (MkB _ ty_addr) a
     → ⊢ semTriple δ
         ((MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG)
                                           (inr {|
@@ -635,7 +635,7 @@ Module MinCapsModel.
 
   Lemma wM_sound `{sg : sailG Σ} `{invG} {Γ es δ} :
     forall a w (p : Lit ty_perm) (b e : Lit ty_addr),
-      evals es δ = env_snoc (env_snoc env_nil (MkB _ ty_addr) a)
+      evals es δ = env.snoc (env.snoc env.nil (MkB _ ty_addr) a)
                             (MkB _ ty_memval) w
     → ⊢ semTriple δ
         (((MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG) w

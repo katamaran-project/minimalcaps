@@ -49,7 +49,7 @@ From Katamaran Require
 Set Implicit Arguments.
 Import ctx.notations.
 Import ctx.resolution.
-Import EnvNotations.
+Import env.notations.
 Open Scope string_scope.
 Open Scope ctx_scope.
 Open Scope Z_scope.
@@ -103,7 +103,7 @@ Module Export MinCapsAssertionKit <:
   Definition Subperm (p p' : Lit ty_perm) : Prop :=
     decide_subperm p p' = true.
 
-  Definition 𝑷_inst (p : 𝑷) : abstract Lit (𝑷_Ty p) Prop :=
+  Definition 𝑷_inst (p : 𝑷) : env.abstract Lit (𝑷_Ty p) Prop :=
     match p with
     | subperm => Subperm
     end.
@@ -139,14 +139,14 @@ Module MinCapsSymbolicContractKit <:
 
   Open Scope env_scope.
 
-  Local Notation "p '<=ₚ' p'" := (asn_formula (formula_user subperm (env_nil ► (ty_perm ↦ p) ► (ty_perm ↦ p')))) (at level 100).
+  Local Notation "p '<=ₚ' p'" := (asn_formula (formula_user subperm (env.nil ► (ty_perm ↦ p) ► (ty_perm ↦ p')))) (at level 100).
 
-  Local Notation "r '↦r' t" := (asn_chunk (chunk_user ptsreg (env_nil ► (ty_enum regname ↦ r) ► (ty_word ↦ t)))) (at level 100).
-  Local Notation "a '↦m' t" := (asn_chunk (chunk_user ptsto (env_nil ► (ty_addr ↦ a) ► (ty_int ↦ t)))) (at level 100).
+  Local Notation "r '↦r' t" := (asn_chunk (chunk_user ptsreg (env.nil ► (ty_enum regname ↦ r) ► (ty_word ↦ t)))) (at level 100).
+  Local Notation "a '↦m' t" := (asn_chunk (chunk_user ptsto (env.nil ► (ty_addr ↦ a) ► (ty_int ↦ t)))) (at level 100).
   Local Notation asn_match_option T opt xl alt_inl alt_inr := (asn_match_sum T ty_unit opt xl alt_inl "_" alt_inr).
-  Local Notation asn_safe w := (asn_chunk (chunk_user safe (env_nil ► (ty_word ↦ w)))).
-  Local Notation asn_csafe c := (asn_chunk (chunk_user safe (env_nil ► (ty_word ↦ (term_inr c))))).
-  Local Notation asn_dummy c := (asn_chunk (chunk_user dummy (env_nil ► (ty_cap ↦ c)))).
+  Local Notation asn_safe w := (asn_chunk (chunk_user safe (env.nil ► (ty_word ↦ w)))).
+  Local Notation asn_csafe c := (asn_chunk (chunk_user safe (env.nil ► (ty_word ↦ (term_inr c))))).
+  Local Notation asn_dummy c := (asn_chunk (chunk_user dummy (env.nil ► (ty_cap ↦ c)))).
   Local Notation asn_match_cap c p b e a asn :=
     (asn_match_record
        capability c
@@ -167,7 +167,7 @@ Module MinCapsSymbolicContractKit <:
     ctx.map (fun '(x::σ) => x::σ) Δ ▻▻ Σ.
 
   Definition create_localstore (Δ : PCtx) (Σ : LCtx) : SStore Δ (sep_contract_logvars Δ Σ) :=
-    (env_tabulate (fun '(x::σ) xIn =>
+    (env.tabulate (fun '(x::σ) xIn =>
                      @term_var
                        (sep_contract_logvars Δ Σ)
                        x
@@ -259,7 +259,7 @@ Module MinCapsSymbolicContractKit <:
 
   Definition sep_contract_next_pc : SepContract ctx.nil ty_cap :=
     {| sep_contract_logic_variables := ["opc" ∶ ty_cap];
-       sep_contract_localstore      := env_nil;
+       sep_contract_localstore      := env.nil;
        sep_contract_precondition    := pc ↦ term_var "opc";
        sep_contract_result          := "result_next_pc";
        sep_contract_postcondition   :=
@@ -276,7 +276,7 @@ Module MinCapsSymbolicContractKit <:
 
   Definition sep_contract_update_pc : SepContract ctx.nil ty_unit :=
     {| sep_contract_logic_variables := ["opc" ∶ ty_cap];
-       sep_contract_localstore      := env_nil;
+       sep_contract_localstore      := env.nil;
        sep_contract_precondition    := pc ↦ term_var "opc" ∗ asn_csafe (term_var "opc");
        sep_contract_result          := "result_update_pc";
        sep_contract_postcondition   :=
@@ -793,7 +793,7 @@ Module MinCapsSymbolicContractKit <:
 
   Definition lemma_close_ptsreg (r : RegName) : SepLemma (close_ptsreg r) :=
     {| lemma_logic_variables := ["w" ∶ ty_word];
-       lemma_patterns        := env_nil;
+       lemma_patterns        := env.nil;
        lemma_precondition    := regtag_to_reg r ↦ term_var "w";
        lemma_postcondition   := term_enum regname r ↦r term_var "w"
     |}.
@@ -887,14 +887,14 @@ Module MinCapsSymbolicContractKit <:
   | term_lit p | term_lit q := if decide_subperm p q then Some nil else None;
   | term_lit O | q          := Some nil;
   | p          | q          :=
-    let ts := env_nil ► (ty_perm ↦ p) ► (ty_perm ↦ q) in
+    let ts := env.nil ► (ty_perm ↦ p) ► (ty_perm ↦ q) in
     Some (cons (formula_user subperm ts) nil).
 
   Definition simplify_user {Σ} (p : 𝑷) : Env (Term Σ) (𝑷_Ty p) -> option (List Formula Σ) :=
     match p with
     | subperm => fun ts =>
-                   let (ts,q) := snocView ts in
-                   let (ts,p) := snocView ts in
+                   let (ts,q) := env.snocView ts in
+                   let (ts,p) := env.snocView ts in
                    simplify_subperm p q
     end.
 
@@ -944,8 +944,8 @@ Local Ltac solve :=
        | |- _ /\ _ => constructor
        | |- VerificationCondition _ =>
          constructor;
-         cbv [SymProp.safe env_remove env_lookup ctx.in_case_snoc eval_binop is_true
-              inst instantiate_term instantiate_formula inst_term inst_formula Env_rect];
+         cbv [SymProp.safe env.remove env.lookup ctx.in_case_snoc eval_binop is_true
+              inst instantiate_term instantiate_formula inst_term inst_formula env.Env_rect];
          cbn
        | |- Obligation _ _ _ => constructor; cbn
        | |- Debug _ _ => constructor
@@ -960,12 +960,12 @@ Local Ltac solve :=
     ).
 
 Local Notation "r '↦' t" := (chunk_ptsreg r t) (at level 100, only printing).
-Local Notation "r '↦r' t" := (chunk_user ptsreg (env_nil ► (ty_enum regname ↦ r) ► (ty_word ↦ t))) (at level 100, only printing).
-Local Notation "a '↦m' t" := (chunk_user ptsto (env_nil ► (ty_addr ↦ a) ► (ty_int ↦ t))) (at level 100, only printing).
+Local Notation "r '↦r' t" := (chunk_user ptsreg (env.nil ► (ty_enum regname ↦ r) ► (ty_word ↦ t))) (at level 100, only printing).
+Local Notation "a '↦m' t" := (chunk_user ptsto (env.nil ► (ty_addr ↦ a) ► (ty_int ↦ t))) (at level 100, only printing).
 Local Notation "p '∗' q" := (asn_sep p q) (at level 150).
-Local Notation safew w := (chunk_user safe (env_nil ► (ty_word ↦ w))).
-Local Notation asn_csafe c := (asn_chunk (chunk_user safe (env_nil ► (ty_word ↦ (term_inr c))))).
-Local Notation asn_dummy c := (asn_chunk (chunk_user dummy (env_nil ► (ty_cap ↦ c)))).
+Local Notation safew w := (chunk_user safe (env.nil ► (ty_word ↦ w))).
+Local Notation asn_csafe c := (asn_chunk (chunk_user safe (env.nil ► (ty_word ↦ (term_inr c))))).
+Local Notation asn_dummy c := (asn_chunk (chunk_user dummy (env.nil ► (ty_cap ↦ c)))).
 Local Notation asn_match_cap c p b e a asn :=
 (asn_match_record
     capability c
