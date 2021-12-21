@@ -39,7 +39,8 @@ From MinimalCaps Require Export
 From stdpp Require Import finite decidable.
 
 Set Implicit Arguments.
-Import CtxNotations.
+Import ctx.notations.
+Import ctx.resolution.
 Import EnvNotations.
 Open Scope string_scope.
 
@@ -59,7 +60,7 @@ Module MinCapsTermKit <: TermKit.
   Notation LCtx := (NCtx 𝑺 Ty).
 
   Definition 𝑿to𝑺 (x : 𝑿) : 𝑺 := x.
-  Definition fresh := Context.fresh (T := Ty).
+  Definition fresh := ctx.fresh (T := Ty).
 
   (** FUNCTIONS **)
   Inductive Fun : PCtx -> Ty -> Set :=
@@ -69,8 +70,8 @@ Module MinCapsTermKit <: TermKit.
   | write_reg       : Fun ["wreg" ∶ ty_enum regname,
                            "w"  ∶ ty_word
                           ] ty_unit
-  | next_pc         : Fun ctx_nil ty_cap
-  | update_pc       : Fun ctx_nil ty_unit
+  | next_pc         : Fun ctx.nil ty_cap
+  | update_pc       : Fun ctx.nil ty_unit
   | add_pc          : Fun ["offset" ∶ ty_int] ty_unit
   | read_mem        : Fun ["c"   ∶ ty_cap ] ty_memval
   | write_mem       : Fun ["c"   ∶ ty_cap,
@@ -130,7 +131,7 @@ Module MinCapsTermKit <: TermKit.
 
   Inductive Lem : PCtx -> Set :=
   | open_ptsreg                : Lem ["reg" ∶ ty_enum regname]
-  | close_ptsreg (R : RegName) : Lem ctx_nil
+  | close_ptsreg (R : RegName) : Lem ctx.nil
   | safe_move_cursor           : Lem ["c'" ∶ ty_cap, "c" ∶ ty_cap]
   | safe_sub_perm              : Lem ["c'" ∶ ty_cap, "c" ∶ ty_cap]
   | safe_within_range          : Lem ["c'" ∶ ty_cap, "c" ∶ ty_cap]
@@ -185,7 +186,6 @@ End MinCapsTermKit.
 
 Module MinCapsProgramKit <: (ProgramKit MinCapsTermKit).
   Module Export TM := Terms MinCapsTermKit.
-  Import NameResolution.
 
   Local Coercion stm_exp : Exp >-> Stm.
 
@@ -270,7 +270,7 @@ Module MinCapsProgramKit <: (ProgramKit MinCapsTermKit).
     (* | R3 => let: "x" := stm_write_register reg3 (exp_var "w") in use lemma (close_ptsreg R3) ;; stm_exp x *)
     end ;; stm_lit ty_unit tt.
 
-  Definition fun_next_pc : Stm ctx_nil ty_cap :=
+  Definition fun_next_pc : Stm ctx.nil ty_cap :=
     let: "c" := stm_read_register pc in
     let*: ["perm" , "beg" , "end" , "cur"] := (exp_var "c") in
       (exp_record capability
@@ -279,7 +279,7 @@ Module MinCapsProgramKit <: (ProgramKit MinCapsTermKit).
            exp_var "end",
            exp_var "cur" + lit_int 1 ]).
 
-  Definition fun_update_pc : Stm ctx_nil ty_unit :=
+  Definition fun_update_pc : Stm ctx.nil ty_unit :=
     let: "opc" := stm_read_register pc in
     let: "npc" := call next_pc in
     use lemma safe_move_cursor [exp_var "npc", exp_var "opc"] ;;

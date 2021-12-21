@@ -69,20 +69,20 @@ Module MinCapsModel.
   Ltac destruct_syminstance ι :=
     repeat
       match type of ι with
-      | Env _ (ctx_snoc _ (?s, _)) =>
+      | Env _ (ctx.snoc _ (MkB ?s _)) =>
         let id := string_to_ident s in
         let fr := fresh id in
         destruct (snocView ι) as [ι fr];
         destruct_syminstance ι
-      | Env _ ctx_nil => destruct (nilView ι)
+      | Env _ ctx.nil => destruct (nilView ι)
       | _ => idtac
       end.
 
   Ltac destruct_syminstances :=
     repeat
       match goal with
-      | ι : Env _ (ctx_snoc _ _) |- _ => destruct_syminstance ι
-      | ι : Env _ ctx_nil        |- _ => destruct_syminstance ι
+      | ι : Env _ (ctx.snoc _ _) |- _ => destruct_syminstance ι
+      | ι : Env _ ctx.nil        |- _ => destruct_syminstance ι
       end.
 
   Module MinCapsIrisHeapKit <: Iris.Model.IrisHeapKit MinCapsTermKit MinCapsProgramKit MinCapsAssertionKit MinCapsSymbolicContractKit.
@@ -475,7 +475,7 @@ Module MinCapsModel.
 
   Lemma dI_sound `{sg : sailG Σ} `{invG} {Γ es δ} :
     forall code : Lit ty_int,
-    evals es δ = env_snoc env_nil (_ , ty_int) code
+    evals es δ = env_snoc env_nil (MkB _ ty_int) code
     → ⊢ semTriple δ (⌜is_true true⌝ ∧ emp) (stm_call_external dI es)
           (λ (v : Lit ty_instr) (δ' : CStore Γ),
              (⌜is_true true⌝ ∧ emp) ∗ ⌜δ' = δ⌝).
@@ -494,7 +494,7 @@ Module MinCapsModel.
 
   Lemma rM_sound `{sg : sailG Σ} `{invG} {Γ es δ} :
     forall a (p : Lit ty_perm) (b e : Lit ty_addr),
-      evals es δ = env_snoc env_nil (_ , ty_addr) a
+      evals es δ = env_snoc env_nil (MkB _ ty_addr) a
     → ⊢ semTriple δ
         ((MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG)
                                           (inr {|
@@ -635,8 +635,8 @@ Module MinCapsModel.
 
   Lemma wM_sound `{sg : sailG Σ} `{invG} {Γ es δ} :
     forall a w (p : Lit ty_perm) (b e : Lit ty_addr),
-      evals es δ = env_snoc (env_snoc env_nil (_ , ty_addr) a)
-                            (_ , ty_memval) w
+      evals es δ = env_snoc (env_snoc env_nil (MkB _ ty_addr) a)
+                            (MkB _ ty_memval) w
     → ⊢ semTriple δ
         (((MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG) w
            ∗ MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG)

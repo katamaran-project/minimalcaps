@@ -47,7 +47,8 @@ From Katamaran Require
      Sep.Logic.
 
 Set Implicit Arguments.
-Import CtxNotations.
+Import ctx.notations.
+Import ctx.resolution.
 Import EnvNotations.
 Open Scope string_scope.
 Open Scope ctx_scope.
@@ -163,7 +164,7 @@ Module MinCapsSymbolicContractKit <:
   (* Arguments asn_prop [_] & _. *)
 
   Definition sep_contract_logvars (Δ : PCtx) (Σ : LCtx) : LCtx :=
-    ctx_map (fun '(x::σ) => x::σ) Δ ▻▻ Σ.
+    ctx.map (fun '(x::σ) => x::σ) Δ ▻▻ Σ.
 
   Definition create_localstore (Δ : PCtx) (Σ : LCtx) : SStore Δ (sep_contract_logvars Δ Σ) :=
     (env_tabulate (fun '(x::σ) xIn =>
@@ -171,14 +172,14 @@ Module MinCapsSymbolicContractKit <:
                        (sep_contract_logvars Δ Σ)
                        x
                        σ
-                       (inctx_cat_left Σ (inctx_map (fun '(y::τ) => y::τ) xIn)))).
+                       (ctx.in_cat_left Σ (ctx.in_map (fun '(y::τ) => y::τ) xIn)))).
 
 
   (* regInv(r) = ∃ w : word. r ↦ w * safe(w) *)
   Definition regInv {Σ} (r : RegName) (w : string) : Assertion Σ :=
     asn_exist w ty_word
-              (term_lit (ty_enum regname) r ↦r (@term_var _ _ _ inctx_zero) ∗
-                asn_safe (@term_var _ _ _ inctx_zero)).
+              (term_lit (ty_enum regname) r ↦r (@term_var _ _ _ ctx.in_zero) ∗
+                asn_safe (@term_var _ _ _ ctx.in_zero)).
 
   (* regInv(r) = ∃ c : cap. r ↦ c * csafe(c) *)
   Definition regInvCap {Σ} (r : Reg ty_cap) : Assertion Σ :=
@@ -256,7 +257,7 @@ Module MinCapsSymbolicContractKit <:
                 term_var "wreg" ↦r term_var "w";
     |}.
 
-  Definition sep_contract_next_pc : SepContract ctx_nil ty_cap :=
+  Definition sep_contract_next_pc : SepContract ctx.nil ty_cap :=
     {| sep_contract_logic_variables := ["opc" ∶ ty_cap];
        sep_contract_localstore      := env_nil;
        sep_contract_precondition    := pc ↦ term_var "opc";
@@ -273,7 +274,7 @@ Module MinCapsSymbolicContractKit <:
                              term_binop binop_plus (term_var "cur") (term_lit ty_addr 1)]))
     |}.
 
-  Definition sep_contract_update_pc : SepContract ctx_nil ty_unit :=
+  Definition sep_contract_update_pc : SepContract ctx.nil ty_unit :=
     {| sep_contract_logic_variables := ["opc" ∶ ty_cap];
        sep_contract_localstore      := env_nil;
        sep_contract_precondition    := pc ↦ term_var "opc" ∗ asn_csafe (term_var "opc");
@@ -914,13 +915,10 @@ Module MinCapsSymbolicContractKit <:
         Some (app k0 ks)
       end.
 
-  Definition solver : Solver :=
+  Definition solver_user : Solver :=
     fun w fmls => option_map (fun l => existT w (tri_id , l)) (simplify_all simplify_formula fmls nil).
-  Definition solver_spec : SolverSpec solver.
+  Definition solver_user_spec : SolverSpec solver_user.
   Admitted.
-
-  Definition solver_user : option SoundSolver :=
-    Some (exist SolverSpec solver solver_spec).
 
 End MinCapsSymbolicContractKit.
 
@@ -946,7 +944,7 @@ Local Ltac solve :=
        | |- _ /\ _ => constructor
        | |- VerificationCondition _ =>
          constructor;
-         cbv [SymProp.safe env_remove env_lookup inctx_case_snoc eval_binop is_true
+         cbv [SymProp.safe env_remove env_lookup ctx.in_case_snoc eval_binop is_true
               inst instantiate_term instantiate_formula inst_term inst_formula Env_rect];
          cbn
        | |- Obligation _ _ _ => constructor; cbn

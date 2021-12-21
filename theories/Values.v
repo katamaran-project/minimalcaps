@@ -36,7 +36,8 @@ From MinimalCaps Require Export
      Types.
 
 Set Implicit Arguments.
-Import CtxNotations.
+Import ctx.notations.
+Import ctx.resolution.
 Import EnvNotations.
 Local Open Scope string_scope.
 
@@ -44,7 +45,6 @@ Module MinCapsValueKit <: ValueKit.
 
   Module typekit := MinCapsTypeKit.
   Module Export TY := Syntax.Types.Types typekit.
-  Import NameResolution.
 
   Notation ty_hv := (ty_enum regname).
   Notation ty_lv := (ty_enum regname).
