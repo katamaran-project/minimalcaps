@@ -33,7 +33,7 @@ From stdpp Require
 From Equations Require Import
      Equations.
 From Katamaran Require Import
-     Syntax.Types.
+     Syntax.TypeKit.
 
 (*** TYPES ***)
 

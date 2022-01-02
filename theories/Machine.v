@@ -50,18 +50,6 @@ Module MinCapsTermKit <: TermKit.
   Module valuekit := MinCapsValueKit.
   Module Export VAL := Syntax.Values.Values valuekit.
 
-  (* VARIABLES *)
-  Definition 𝑿        := string.
-  Definition 𝑿_eq_dec := string_dec.
-  Definition 𝑺        := string.
-  Definition 𝑺_eq_dec := string_dec.
-
-  Notation PCtx := (NCtx 𝑿 Ty).
-  Notation LCtx := (NCtx 𝑺 Ty).
-
-  Definition 𝑿to𝑺 (x : 𝑿) : 𝑺 := x.
-  Definition fresh := ctx.fresh (T := Ty).
-
   (** FUNCTIONS **)
   Inductive Fun : PCtx -> Ty -> Set :=
   | read_reg        : Fun ["rreg" ∶ ty_enum regname ] ty_word

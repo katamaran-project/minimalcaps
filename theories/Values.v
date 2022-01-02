@@ -42,9 +42,7 @@ Import env.notations.
 Local Open Scope string_scope.
 
 Module MinCapsValueKit <: ValueKit.
-
-  Module typekit := MinCapsTypeKit.
-  Module Export TY := Syntax.Types.Types typekit.
+  Module Export TY := MakeTypes DefaultVarKit MinCapsTypeKit.
 
   Notation ty_hv := (ty_enum regname).
   Notation ty_lv := (ty_enum regname).
