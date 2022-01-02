@@ -91,7 +91,7 @@ Module MinCapsValueKit <: ValueKit.
       end
     end.
 
-  Definition 𝑼_fold (U : 𝑼) : { K : 𝑼𝑲 U & Lit (𝑼𝑲_Ty U K) } -> 𝑼𝑻 U :=
+  Definition 𝑼_fold (U : 𝑼) : { K : 𝑼𝑲 U & Val (𝑼𝑲_Ty U K) } -> 𝑼𝑻 U :=
     match U with
     | instruction => fun Kv =>
       match Kv with
@@ -124,8 +124,8 @@ Module MinCapsValueKit <: ValueKit.
       | existT kret      tt                          => ret
       end
     end.
-  Definition 𝑼_unfold (U : 𝑼) : 𝑼𝑻 U -> { K : 𝑼𝑲 U & Lit (𝑼𝑲_Ty U K) } :=
-    match U as u return (𝑼𝑻 u -> {K : 𝑼𝑲 u & Lit (𝑼𝑲_Ty u K)}) with
+  Definition 𝑼_unfold (U : 𝑼) : 𝑼𝑻 U -> { K : 𝑼𝑲 U & Val (𝑼𝑲_Ty U K) } :=
+    match U as u return (𝑼𝑻 u -> {K : 𝑼𝑲 u & Val (𝑼𝑲_Ty u K)}) with
     | instruction => fun Kv =>
       match Kv with
       | jr  lv                   => existT kjr        lv
@@ -160,7 +160,7 @@ Module MinCapsValueKit <: ValueKit.
   Lemma 𝑼_fold_unfold : forall (U : 𝑼) (Kv: 𝑼𝑻 U),
       𝑼_fold U (𝑼_unfold U Kv) = Kv.
   Proof. now intros [] []. Qed.
-  Lemma 𝑼_unfold_fold : forall (U : 𝑼) (Kv: { K : 𝑼𝑲 U & Lit (𝑼𝑲_Ty U K) }),
+  Lemma 𝑼_unfold_fold : forall (U : 𝑼) (Kv: { K : 𝑼𝑲 U & Val (𝑼𝑲_Ty U K) }),
       𝑼_unfold U (𝑼_fold U Kv) = Kv.
   Proof.
     intros [] [[] x]; cbn in x;
@@ -182,7 +182,7 @@ Module MinCapsValueKit <: ValueKit.
                     ]
     end.
 
-  Definition 𝑹_fold (R : 𝑹) : NamedEnv Lit (𝑹𝑭_Ty R) -> 𝑹𝑻 R :=
+  Definition 𝑹_fold (R : 𝑹) : NamedEnv Val (𝑹𝑭_Ty R) -> 𝑹𝑻 R :=
     match R with
     | capability =>
       fun fields =>
@@ -193,7 +193,7 @@ Module MinCapsValueKit <: ValueKit.
           (fields ‼ "cap_cursor")
     end%exp.
 
-  Definition 𝑹_unfold (R : 𝑹) : 𝑹𝑻 R -> NamedEnv Lit (𝑹𝑭_Ty R) :=
+  Definition 𝑹_unfold (R : 𝑹) : 𝑹𝑻 R -> NamedEnv Val (𝑹𝑭_Ty R) :=
     match R  with
     | capability =>
       fun c=>
@@ -206,7 +206,7 @@ Module MinCapsValueKit <: ValueKit.
   Lemma 𝑹_fold_unfold : forall (R : 𝑹) (Kv: 𝑹𝑻 R),
       𝑹_fold R (𝑹_unfold R Kv) = Kv.
   Proof. now intros [] []. Qed.
-  Lemma 𝑹_unfold_fold : forall (R : 𝑹) (Kv: NamedEnv Lit (𝑹𝑭_Ty R)),
+  Lemma 𝑹_unfold_fold : forall (R : 𝑹) (Kv: NamedEnv Val (𝑹𝑭_Ty R)),
       𝑹_unfold R (𝑹_fold R Kv) = Kv.
   Proof. intros []; now apply env.Forall_forall. Qed.
 

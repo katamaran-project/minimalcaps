@@ -367,8 +367,8 @@ Module MinCapsModel.
 
     Import env.notations.
 
-    Definition luser_inst `{sailRegG Σ} `{invG Σ} (p : Predicate) (ts : Env Lit (MinCapsAssertionKit.𝑯_Ty p)) (mG : memG Σ) : iProp Σ :=
-      (match p return Env Lit (MinCapsAssertionKit.𝑯_Ty p) -> iProp Σ with
+    Definition luser_inst `{sailRegG Σ} `{invG Σ} (p : Predicate) (ts : Env Val (MinCapsAssertionKit.𝑯_Ty p)) (mG : memG Σ) : iProp Σ :=
+      (match p return Env Val (MinCapsAssertionKit.𝑯_Ty p) -> iProp Σ with
       | ptsreg => fun ts => MinCaps_ptsreg (env.head (env.tail ts)) (env.head ts)
       | ptsto => fun ts => mapsto (hG := mc_ghG (mcMemG := mG)) (env.head (env.tail ts)) (DfracOwn 1) (env.head ts)
       | safe => fun ts => MinCaps_safe (mG := mG) (env.head ts)
@@ -379,7 +379,7 @@ Module MinCapsModel.
     Proof. destruct w; simpl; rewrite fixpoint_MinCaps_safe1_eq; simpl; first apply _.
            destruct c; destruct cap_permission; apply _. Qed.
 
-    Definition lduplicate_inst `{sailRegG Σ} `{invG Σ} (p : Predicate) (ts : Env Lit (MinCapsAssertionKit.𝑯_Ty p)) :
+    Definition lduplicate_inst `{sailRegG Σ} `{invG Σ} (p : Predicate) (ts : Env Val (MinCapsAssertionKit.𝑯_Ty p)) :
       forall (mG : memG Σ),
         is_duplicable p = true ->
         (luser_inst p ts mG) ⊢ (luser_inst p ts mG ∗ luser_inst p ts mG).
@@ -474,10 +474,10 @@ Module MinCapsModel.
   End Lemmas.
 
   Lemma dI_sound `{sg : sailG Σ} `{invG} {Γ es δ} :
-    forall code : Lit ty_int,
+    forall code : Val ty_int,
     evals es δ = env.snoc env.nil (MkB _ ty_int) code
     → ⊢ semTriple δ (⌜is_true true⌝ ∧ emp) (stm_call_external dI es)
-          (λ (v : Lit ty_instr) (δ' : CStore Γ),
+          (λ (v : Val ty_instr) (δ' : CStore Γ),
              (⌜is_true true⌝ ∧ emp) ∗ ⌜δ' = δ⌝).
   Proof.
     intros code Heq.
@@ -493,7 +493,7 @@ Module MinCapsModel.
   Import iris.base_logic.lib.gen_heap.
 
   Lemma rM_sound `{sg : sailG Σ} `{invG} {Γ es δ} :
-    forall a (p : Lit ty_perm) (b e : Lit ty_addr),
+    forall a (p : Val ty_perm) (b e : Val ty_addr),
       evals es δ = env.snoc env.nil (MkB _ ty_addr) a
     → ⊢ semTriple δ
         ((MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG)
@@ -634,7 +634,7 @@ Module MinCapsModel.
   Qed.
 
   Lemma wM_sound `{sg : sailG Σ} `{invG} {Γ es δ} :
-    forall a w (p : Lit ty_perm) (b e : Lit ty_addr),
+    forall a w (p : Val ty_perm) (b e : Val ty_addr),
       evals es δ = env.snoc (env.snoc env.nil (MkB _ ty_addr) a)
                             (MkB _ ty_memval) w
     → ⊢ semTriple δ

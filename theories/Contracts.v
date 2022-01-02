@@ -87,7 +87,7 @@ Module Export MinCapsAssertionKit <:
     | subperm => [ty_perm, ty_perm]
     end.
 
-  Definition decide_subperm (p p' : Lit ty_perm) : bool :=
+  Definition decide_subperm (p p' : Val ty_perm) : bool :=
     match p with
     | O => true
     | R => match p' with
@@ -100,10 +100,10 @@ Module Export MinCapsAssertionKit <:
             end
     end.
 
-  Definition Subperm (p p' : Lit ty_perm) : Prop :=
+  Definition Subperm (p p' : Val ty_perm) : Prop :=
     decide_subperm p p' = true.
 
-  Definition 𝑷_inst (p : 𝑷) : env.abstract Lit (𝑷_Ty p) Prop :=
+  Definition 𝑷_inst (p : 𝑷) : env.abstract Val (𝑷_Ty p) Prop :=
     match p with
     | subperm => Subperm
     end.
@@ -178,7 +178,7 @@ Module MinCapsSymbolicContractKit <:
   (* regInv(r) = ∃ w : word. r ↦ w * safe(w) *)
   Definition regInv {Σ} (r : RegName) (w : string) : Assertion Σ :=
     asn_exist w ty_word
-              (term_lit (ty_enum regname) r ↦r (@term_var _ _ _ ctx.in_zero) ∗
+              (term_val (ty_enum regname) r ↦r (@term_var _ _ _ ctx.in_zero) ∗
                 asn_safe (@term_var _ _ _ ctx.in_zero)).
 
   (* regInv(r) = ∃ c : cap. r ↦ c * csafe(c) *)
@@ -253,7 +253,7 @@ Module MinCapsSymbolicContractKit <:
        sep_contract_precondition    := asn_exist "old_word" ty_word (term_var "wreg" ↦r term_var "old_word");
        sep_contract_result          := "result_write_reg";
        sep_contract_postcondition   :=
-         asn_eq (term_var "result_write_reg") (term_lit ty_unit tt) ∗
+         asn_eq (term_var "result_write_reg") (term_val ty_unit tt) ∗
                 term_var "wreg" ↦r term_var "w";
     |}.
 
@@ -271,7 +271,7 @@ Module MinCapsSymbolicContractKit <:
                             [term_var "perm",
                              term_var "beg",
                              term_var "end",
-                             term_binop binop_plus (term_var "cur") (term_lit ty_addr 1)]))
+                             term_binop binop_plus (term_var "cur") (term_val ty_addr 1)]))
     |}.
 
   Definition sep_contract_update_pc : SepContract ctx.nil ty_unit :=
@@ -280,7 +280,7 @@ Module MinCapsSymbolicContractKit <:
        sep_contract_precondition    := pc ↦ term_var "opc" ∗ asn_csafe (term_var "opc");
        sep_contract_result          := "result_update_pc";
        sep_contract_postcondition   :=
-         asn_eq (term_var "result_update_pc") (term_lit ty_unit tt) ∗
+         asn_eq (term_var "result_update_pc") (term_val ty_unit tt) ∗
                 asn_exist "npc" ty_cap
                 (pc ↦ term_var "npc" ∗ asn_csafe (term_var "npc"));
     |}.
@@ -291,7 +291,7 @@ Module MinCapsSymbolicContractKit <:
        sep_contract_precondition    := pc ↦ term_var "opc" ∗ asn_csafe (term_var "opc");
        sep_contract_result          := "result_add_pc";
        sep_contract_postcondition   :=
-         asn_eq (term_var "result_add_pc") (term_lit ty_unit tt) ∗
+         asn_eq (term_var "result_add_pc") (term_val ty_unit tt) ∗
                 asn_exist "npc" ty_cap
                 (pc ↦ term_var "npc" ∗ asn_csafe (term_var "npc"));
     |}.
@@ -311,7 +311,7 @@ Module MinCapsSymbolicContractKit <:
        sep_contract_precondition    := asn_safe (term_var "v") ∗ asn_csafe (term_var "c");
        sep_contract_result          := "write_mem_result";
        sep_contract_postcondition   :=
-         asn_csafe (term_var "c") ∗ asn_eq (term_var "write_mem_result") (term_lit ty_unit tt);
+         asn_csafe (term_var "c") ∗ asn_eq (term_var "write_mem_result") (term_val ty_unit tt);
     |}.
 
   Definition sep_contract_read_allowed : SepContract ["p" ∶ ty_perm ] ty_bool :=
@@ -321,8 +321,8 @@ Module MinCapsSymbolicContractKit <:
        sep_contract_result          := "result_read_allowed";
        sep_contract_postcondition   := 
          asn_if (term_var "result_read_allowed")
-                (term_lit ty_perm R <=ₚ term_var "p")
-                (asn_eq (term_var "result_read_allowed") (term_lit ty_bool false));
+                (term_val ty_perm R <=ₚ term_var "p")
+                (asn_eq (term_var "result_read_allowed") (term_val ty_bool false));
     |}.
 
   Definition sep_contract_write_allowed : SepContract ["p" ∶ ty_perm ] ty_bool :=
@@ -332,8 +332,8 @@ Module MinCapsSymbolicContractKit <:
        sep_contract_result          := "result_write_allowed";
        sep_contract_postcondition   :=
          asn_if (term_var "result_write_allowed")
-                (term_lit ty_perm RW <=ₚ term_var "p")
-                (asn_eq (term_var "result_write_allowed") (term_lit ty_bool false));
+                (term_val ty_perm RW <=ₚ term_var "p")
+                (asn_eq (term_var "result_write_allowed") (term_val ty_bool false));
     |}.
 
   Definition sep_contract_upper_bound : SepContract ["a" ∶ ty_addr, "e" ∶ ty_addr ] ty_bool :=
@@ -552,7 +552,7 @@ Module MinCapsSymbolicContractKit <:
        sep_contract_postcondition   :=
          asn_if (term_var "result_is_sub_perm")
                 (term_var "p" <=ₚ term_var "p'")
-                (asn_eq (term_var "result_is_sub_perm") (term_lit ty_bool false));
+                (asn_eq (term_var "result_is_sub_perm") (term_val ty_bool false));
     |}.
 
   (*
@@ -807,7 +807,7 @@ Module MinCapsSymbolicContractKit <:
                              term_var "b",
                              term_var "e",
                              term_var "address"]) ∗
-                   term_lit ty_perm R <=ₚ term_var "p" ∗
+                   term_val ty_perm R <=ₚ term_var "p" ∗
                    asn_within_bounds (term_var "address") (term_var "b") (term_var "e");
        sep_contract_result          := "rM_result";
        sep_contract_postcondition   :=
@@ -829,7 +829,7 @@ Module MinCapsSymbolicContractKit <:
                                             term_var "b",
                                             term_var "e",
                                             term_var "address"])
-                  ∗ term_lit ty_perm RW <=ₚ term_var "p"
+                  ∗ term_val ty_perm RW <=ₚ term_var "p"
                   ∗ asn_within_bounds (term_var "address") (term_var "b") (term_var "e");
        sep_contract_result          := "wM_result";
        sep_contract_postcondition   :=
@@ -838,7 +838,7 @@ Module MinCapsSymbolicContractKit <:
                              term_var "b",
                              term_var "e",
                              term_var "address"])
-           ∗ asn_eq (term_var "wM_result") (term_lit ty_unit tt)
+           ∗ asn_eq (term_var "wM_result") (term_val ty_unit tt)
     |}.
 
   Definition sep_contract_dI : SepContractFunX dI :=
@@ -884,8 +884,8 @@ Module MinCapsSymbolicContractKit <:
   Qed.
 
   Equations(noeqns) simplify_subperm {Σ} (p q : Term Σ ty_perm) : option (List Formula Σ) :=
-  | term_lit p | term_lit q := if decide_subperm p q then Some nil else None;
-  | term_lit O | q          := Some nil;
+  | term_val p | term_val q := if decide_subperm p q then Some nil else None;
+  | term_val O | q          := Some nil;
   | p          | q          :=
     let ts := env.nil ► (ty_perm ↦ p) ► (ty_perm ↦ q) in
     Some (cons (formula_user subperm ts) nil).
@@ -937,7 +937,7 @@ Local Ltac solve :=
        match goal with
        | H: _ /\ _ |- _ => destruct H
        | H: Empty_set |- _ => destruct H
-       | |- forall _, _ => cbn [Lit snd]; intro
+       | |- forall _, _ => cbn [Val snd]; intro
        | |- False \/ _ =>  right
        | |- _ \/ False =>  left
        | |- _ \/ exists _, _ =>  left (* avoid existentials, bit fishy but fine for now *)
@@ -954,7 +954,7 @@ Local Ltac solve :=
        | |- context[Z.leb ?x ?y] =>
          destruct (Z.leb_spec x y)
        end;
-     cbn [List.length andb is_true Lit snd];
+     cbn [List.length andb is_true Val snd];
      subst; try congruence; try lia;
      auto
     ).
@@ -1020,7 +1020,7 @@ Ltac debug_satisfy_eval_cbn_inputs :=
 Ltac debug_satisfy_eval_cbv :=
   match goal with
   | |- outcome_satisfy ?o ?P =>
-    let o' := eval cbv - [NamedEnv Lit Error] in o in
+    let o' := eval cbv - [NamedEnv Val Error] in o in
     change_no_check (outcome_satisfy o' P); cbn [outcome_satisfy]
   end.
 
