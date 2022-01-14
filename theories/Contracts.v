@@ -63,6 +63,7 @@ Inductive Predicate : Set :=
 | ptsto
 | safe
 | dummy
+| gprs
 .
 
 Section TransparentObligations.
@@ -117,6 +118,7 @@ Module Export MinCapsAssertionKit <:
     | ptsto => [ty_addr, ty_memval]
     | safe => [ty_word]
     | dummy => [ty_cap]
+    | gprs => ctx.nil
     end.
   Instance 𝑯_is_dup : IsDuplicable Predicate := {
     is_duplicable p :=
@@ -125,6 +127,7 @@ Module Export MinCapsAssertionKit <:
       | ptsto => false
       | safe => true
       | dummy => false
+      | gprs => false
       end
     }.
   Instance 𝑯_eq_dec : EqDec 𝑯 := Predicate_eqdec.
@@ -147,6 +150,7 @@ Module MinCapsSymbolicContractKit <:
   Local Notation asn_safe w := (asn_chunk (chunk_user safe (env.nil ► (ty_word ↦ w)))).
   Local Notation asn_csafe c := (asn_chunk (chunk_user safe (env.nil ► (ty_word ↦ (term_inr c))))).
   Local Notation asn_dummy c := (asn_chunk (chunk_user dummy (env.nil ► (ty_cap ↦ c)))).
+  Local Notation asn_gprs := (asn_chunk (chunk_user gprs env.nil)).
   Local Notation asn_match_cap c p b e a asn :=
     (asn_match_record
        capability c
@@ -176,8 +180,8 @@ Module MinCapsSymbolicContractKit <:
 
 
   (* regInv(r) = ∃ w : word. r ↦ w * safe(w) *)
-  Definition regInv {Σ} (r : RegName) (w : string) : Assertion Σ :=
-    asn_exist w ty_word
+  Definition regInv {Σ} (r : RegName) : Assertion Σ :=
+    asn_exist "w" ty_word
               (term_val (ty_enum regname) r ↦r (@term_var _ _ _ ctx.in_zero) ∗
                 asn_safe (@term_var _ _ _ ctx.in_zero)).
 
@@ -187,10 +191,15 @@ Module MinCapsSymbolicContractKit <:
               (r ↦ term_var "c" ∗
                  asn_csafe (term_var "c")).
 
+  Definition asn_and_regs {Σ} (f : RegName -> Assertion Σ) : Assertion Σ :=
+    f R0 ∗ f R1 ∗ f R2 ∗ f R3.
+
+  Definition asn_regs_ptsto_safe {Σ} : Assertion Σ :=
+    asn_and_regs regInv.
+
   (* mach_inv = regInv(r1) * regInv(r2) * regInv(r3) * regInv(r4) * regInvCap(pc) *)
   Definition mach_inv {Σ} : Assertion Σ :=
-    (regInv R0 "w0") ∗ (regInv R1 "w1") ∗ (regInvCap pc).
-    (* ✱ (regInv R2 "w2") ✱ (regInv R3 "w3") *)
+    asn_gprs ∗ (regInvCap pc).
 
   (*
      @pre mach_inv;
@@ -711,10 +720,25 @@ Module MinCapsSymbolicContractKit <:
            (fun k => match k with
                      | R0 => reg0 ↦ term_var "w"
                      | R1 => reg1 ↦ term_var "w"
-                     (* | R2 => reg2 ↦ term_var "w"
-                     | R3 => reg3 ↦ term_var "w" *)
+                     | R2 => reg2 ↦ term_var "w"
+                     | R3 => reg3 ↦ term_var "w"
                      end)
     |}.
+
+  Definition lemma_open_gprs : SepLemma open_gprs :=
+    {| lemma_logic_variables := ctx.nil;
+       lemma_patterns        := env.nil;
+       lemma_precondition    := asn_gprs;
+       lemma_postcondition   := asn_regs_ptsto_safe;
+    |}.
+
+  Definition lemma_close_gprs : SepLemma close_gprs :=
+    {| lemma_logic_variables := ctx.nil;
+       lemma_patterns        := env.nil;
+       lemma_precondition    := asn_regs_ptsto_safe;
+       lemma_postcondition   := asn_gprs;
+    |}.
+
 
   Definition lemma_safe_move_cursor : SepLemma safe_move_cursor :=
     let Σ : LCtx := ["p" ∶ ty_perm, "b" ∶ ty_addr, "e" ∶ ty_addr, "a" ∶ ty_addr, "a'" ∶ ty_addr]%ctx in
@@ -787,8 +811,8 @@ Module MinCapsSymbolicContractKit <:
     match R with
     | R0 => reg0
     | R1 => reg1
-    (* | R2 => reg2
-    | R3 => reg3 *)
+    | R2 => reg2
+    | R3 => reg3
     end.
 
   Definition lemma_close_ptsreg (r : RegName) : SepLemma (close_ptsreg r) :=
@@ -867,13 +891,15 @@ Module MinCapsSymbolicContractKit <:
   Definition LEnv : LemmaEnv :=
     fun Δ l =>
       match l with
-        | open_ptsreg            => lemma_open_ptsreg
-        | close_ptsreg r         => lemma_close_ptsreg r
-        | safe_move_cursor       => lemma_safe_move_cursor
-        | safe_sub_perm          => lemma_safe_sub_perm
-        | safe_within_range      => lemma_safe_within_range
-        | int_safe               => lemma_int_safe
-        | gen_dummy              => lemma_gen_dummy
+        | open_ptsreg       => lemma_open_ptsreg
+        | close_ptsreg r    => lemma_close_ptsreg r
+        | open_gprs         => lemma_open_gprs
+        | close_gprs        => lemma_close_gprs
+        | safe_move_cursor  => lemma_safe_move_cursor
+        | safe_sub_perm     => lemma_safe_sub_perm
+        | safe_within_range => lemma_safe_within_range
+        | int_safe          => lemma_int_safe
+        | gen_dummy         => lemma_gen_dummy
       end.
 
   Lemma linted_cenvex :
@@ -983,7 +1009,12 @@ Local Notation asn_within_bounds a b e :=
 Definition ValidContract {Δ τ} (f : Fun Δ τ) : Prop :=
   match CEnv f with
   | Some c => ValidContractReflect c (Pi f)
-  (* | Some c => SMut.ValidContract c (Pi f) *)
+  | None => False
+  end.
+
+Definition ValidContractDebug {Δ τ} (f : Fun Δ τ) : Prop :=
+  match CEnv f with
+  | Some c => SMut.ValidContract c (Pi f)
   | None => False
   end.
 

@@ -164,8 +164,8 @@ Module MinCapsModel.
       match reg with
       | R0 => reg_pointsTo reg0 v
       | R1 => reg_pointsTo reg1 v
-      (* | R2 => reg_pointsTo reg2 v
-      | R3 => reg_pointsTo reg3 v *)
+      | R2 => reg_pointsTo reg2 v
+      | R3 => reg_pointsTo reg3 v
       end.
 
     Lemma MinCaps_ptsreg_regtag_to_reg `{sailRegG Σ} (reg : RegName) (v : Z + Capability) :
@@ -365,6 +365,11 @@ Module MinCapsModel.
       split; assumption.
     Qed.
 
+    Definition GPRs : list RegName := finite.enum RegName.
+
+    Definition interp_gprs `{sailRegG Σ} `{invG Σ} `{mG : memG Σ} : iProp Σ :=
+      [∗ list] r ∈ GPRs, (∃ w, MinCaps_ptsreg r w ∗ MinCaps_safe (mG := mG) w)%I.
+
     Import env.notations.
 
     Definition luser_inst `{sailRegG Σ} `{invG Σ} (p : Predicate) (ts : Env Val (MinCapsAssertionKit.𝑯_Ty p)) (mG : memG Σ) : iProp Σ :=
@@ -373,6 +378,7 @@ Module MinCapsModel.
       | ptsto => fun ts => mapsto (hG := mc_ghG (mcMemG := mG)) (env.head (env.tail ts)) (DfracOwn 1) (env.head ts)
       | safe => fun ts => MinCaps_safe (mG := mG) (env.head ts)
       | dummy => fun ts => True%I
+      | gprs => fun ts => interp_gprs (mG := mG)
       end) ts.
 
     Global Instance MinCaps_safe_Persistent `{sailRegG Σ} `{invG Σ} {mG : memG Σ} (w : leibnizO MemVal) : Persistent (MinCaps_safe (mG := mG) w).
@@ -418,6 +424,27 @@ Module MinCapsModel.
     Proof.
       intros ι. destruct_syminstance ι. cbn.
       rewrite MinCapsIrisHeapKit.MinCaps_ptsreg_regtag_to_reg; auto.
+    Qed.
+
+    Lemma open_gprs_sound :
+      ValidLemma (MinCapsSymbolicContractKit.lemma_open_gprs).
+    Proof.
+      intros ι; destruct_syminstance ι; cbn.
+      iIntros "[HR0 [HR1 [HR2 [HR3 _]]]]".
+      iSplitR "HR3"; try done.
+      iSplitR "HR2"; try done.
+      iSplitR "HR1"; try done.
+    Qed.
+
+    Lemma close_gprs_sound :
+      ValidLemma (MinCapsSymbolicContractKit.lemma_close_gprs).
+    Proof.
+      intros ι; destruct_syminstance ι; cbn.
+      iIntros "[[[HR0 HR1] HR2] HR3]".
+      iSplitL "HR0"; try done.
+      iSplitL "HR1"; try done.
+      iSplitL "HR2"; try done.
+      iSplitL "HR3"; try done.
     Qed.
 
     Lemma int_safe_sound :
@@ -737,7 +764,8 @@ Module MinCapsModel.
   Lemma lemSem `{sg : sailG Σ} : LemmaSem (Σ := Σ).
   Proof.
     intros Δ []; eauto using
-      open_ptsreg_sound, close_ptsreg_sound, int_safe_sound,
+      open_ptsreg_sound, close_ptsreg_sound,
+      open_gprs_sound, close_gprs_sound, int_safe_sound,
       safe_move_cursor_sound, safe_sub_perm_sound,
       safe_within_range_sound, gen_dummy_sound.
   Qed.
