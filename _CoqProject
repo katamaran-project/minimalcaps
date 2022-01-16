@@ -6,8 +6,7 @@
 -arg "-w -ssr-search-moved"
 -arg "-native-compiler no"
 -Q theories MinimalCaps
+theories/Base.v
 theories/Contracts.v
 theories/Machine.v
 theories/Model.v
-theories/Types.v
-theories/Values.v

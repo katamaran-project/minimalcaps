@@ -39,12 +39,10 @@ From Equations Require Import
      Equations.
 
 From Katamaran Require Import
-     Sep.Spec
+     Notation
+     Specification
      Symbolic.Mutator
-     Syntax.
-From Katamaran Require
-     Environment
-     Sep.Logic.
+     Symbolic.Solver.
 
 Set Implicit Arguments.
 Import ctx.notations.
@@ -77,11 +75,10 @@ End TransparentObligations.
 Derive EqDec for PurePredicate.
 Derive EqDec for Predicate.
 
-Module Export MinCapsAssertionKit <:
-  (AssertionKit MinCapsTermKit MinCapsProgramKit).
+Module Import MinCapsSpecification <: Specification MinCapsBase.
+Module PROG := MinCapsProgram.
 
-  Export MinCapsProgramKit.
-
+Section PredicateKit.
   Definition 𝑷 := PurePredicate.
   Definition 𝑷_Ty (p : 𝑷) : Ctx Ty :=
     match p with
@@ -120,7 +117,7 @@ Module Export MinCapsAssertionKit <:
     | dummy => [ty_cap]
     | gprs => ctx.nil
     end.
-  Instance 𝑯_is_dup : IsDuplicable Predicate := {
+  Global Instance 𝑯_is_dup : IsDuplicable Predicate := {
     is_duplicable p :=
       match p with
       | ptsreg => false
@@ -131,21 +128,22 @@ Module Export MinCapsAssertionKit <:
       end
     }.
   Instance 𝑯_eq_dec : EqDec 𝑯 := Predicate_eqdec.
-End MinCapsAssertionKit.
 
-Module MinCapsSymbolicContractKit <:
-  SymbolicContractKit MinCapsTermKit MinCapsProgramKit MinCapsAssertionKit.
-  Module Export ASS := Assertions MinCapsTermKit MinCapsProgramKit MinCapsAssertionKit.
+End PredicateKit.
 
-  Local Notation "r '↦' t" := (asn_chunk (chunk_ptsreg r t)) (at level 100).
-  Local Notation "p '∗' q" := (asn_sep p q) (at level 150).
+Include ContractDeclMixin MinCapsBase MinCapsProgram.
+
+Section ContractDefKit.
+
+  Local Notation "r '↦' t" := (asn_chunk (chunk_ptsreg r t)) (at level 70).
+  Local Notation "p '∗' q" := (asn_sep p q).
 
   Open Scope env_scope.
 
-  Local Notation "p '<=ₚ' p'" := (asn_formula (formula_user subperm (env.nil ► (ty_perm ↦ p) ► (ty_perm ↦ p')))) (at level 100).
+  Local Notation "p '<=ₚ' p'" := (asn_formula (formula_user subperm (env.nil ► (ty_perm ↦ p) ► (ty_perm ↦ p')))) (at level 70).
 
-  Local Notation "r '↦r' t" := (asn_chunk (chunk_user ptsreg (env.nil ► (ty_enum regname ↦ r) ► (ty_word ↦ t)))) (at level 100).
-  Local Notation "a '↦m' t" := (asn_chunk (chunk_user ptsto (env.nil ► (ty_addr ↦ a) ► (ty_int ↦ t)))) (at level 100).
+  Local Notation "r '↦r' t" := (asn_chunk (chunk_user ptsreg (env.nil ► (ty_enum regname ↦ r) ► (ty_word ↦ t)))) (at level 70).
+  Local Notation "a '↦m' t" := (asn_chunk (chunk_user ptsto (env.nil ► (ty_addr ↦ a) ► (ty_int ↦ t)))) (at level 70).
   Local Notation asn_match_option T opt xl alt_inl alt_inr := (asn_match_sum T ty_unit opt xl alt_inl "_" alt_inr).
   Local Notation asn_safe w := (asn_chunk (chunk_user safe (env.nil ► (ty_word ↦ w)))).
   Local Notation asn_csafe c := (asn_chunk (chunk_user safe (env.nil ► (ty_word ↦ (term_inr c))))).
@@ -909,6 +907,13 @@ Module MinCapsSymbolicContractKit <:
     intros ? ? []; try constructor.
   Qed.
 
+End ContractDefKit.
+
+Include SpecificationMixin MinCapsBase MinCapsProgram.
+
+End MinCapsSpecification.
+
+Module MinCapsSolverKit <: SolverKit MinCapsBase MinCapsSpecification.
   Equations(noeqns) simplify_subperm {Σ} (p q : Term Σ ty_perm) : option (List Formula Σ) :=
   | term_val p | term_val q := if decide_subperm p q then Some nil else None;
   | term_val O | q          := Some nil;
@@ -941,20 +946,15 @@ Module MinCapsSymbolicContractKit <:
         Some (app k0 ks)
       end.
 
-  Definition solver_user : Solver :=
+  Definition solver : Solver :=
     fun w fmls => option_map (fun l => existT w (tri_id , l)) (simplify_all simplify_formula fmls nil).
-  Definition solver_user_spec : SolverSpec solver_user.
+  Definition solver_spec : SolverSpec solver.
   Admitted.
+End MinCapsSolverKit.
+Module MinCapsSolver := MakeSolver MinCapsBase MinCapsSpecification MinCapsSolverKit.
 
-End MinCapsSymbolicContractKit.
-
-Module MinCapsMutators :=
-  Mutators
-    MinCapsTermKit
-    MinCapsProgramKit
-    MinCapsAssertionKit
-    MinCapsSymbolicContractKit.
-Import MinCapsMutators.
+Module Import MinCapsExecutor :=
+  MakeExecutor MinCapsBase MinCapsSpecification MinCapsSolver.
 Import SMut.
 
 Local Ltac solve :=
@@ -985,10 +985,10 @@ Local Ltac solve :=
      auto
     ).
 
-Local Notation "r '↦' t" := (chunk_ptsreg r t) (at level 100, only printing).
-Local Notation "r '↦r' t" := (chunk_user ptsreg (env.nil ► (ty_enum regname ↦ r) ► (ty_word ↦ t))) (at level 100, only printing).
-Local Notation "a '↦m' t" := (chunk_user ptsto (env.nil ► (ty_addr ↦ a) ► (ty_int ↦ t))) (at level 100, only printing).
-Local Notation "p '∗' q" := (asn_sep p q) (at level 150).
+Local Notation "r '↦' t" := (chunk_ptsreg r t) (at level 70, only printing).
+Local Notation "r '↦r' t" := (chunk_user ptsreg (env.nil ► (ty_enum regname ↦ r) ► (ty_word ↦ t))) (at level 70, only printing).
+Local Notation "a '↦m' t" := (chunk_user ptsto (env.nil ► (ty_addr ↦ a) ► (ty_int ↦ t))) (at level 70, only printing).
+Local Notation "p '∗' q" := (asn_sep p q).
 Local Notation safew w := (chunk_user safe (env.nil ► (ty_word ↦ w))).
 Local Notation asn_csafe c := (asn_chunk (chunk_user safe (env.nil ► (ty_word ↦ (term_inr c))))).
 Local Notation asn_dummy c := (asn_chunk (chunk_user dummy (env.nil ► (ty_cap ↦ c)))).
@@ -1008,13 +1008,13 @@ Local Notation asn_within_bounds a b e :=
 
 Definition ValidContract {Δ τ} (f : Fun Δ τ) : Prop :=
   match CEnv f with
-  | Some c => ValidContractReflect c (Pi f)
+  | Some c => ValidContractReflect c (FunDef f)
   | None => False
   end.
 
 Definition ValidContractDebug {Δ τ} (f : Fun Δ τ) : Prop :=
   match CEnv f with
-  | Some c => SMut.ValidContract c (Pi f)
+  | Some c => SMut.ValidContract c (FunDef f)
   | None => False
   end.
 

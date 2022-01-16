@@ -32,9 +32,10 @@ From Coq Require Import
 From Equations Require Import
      Equations.
 From Katamaran Require Import
-     Syntax.
+     Semantics.Registers
+     Program.
 From MinimalCaps Require Export
-     Values.
+     Base.
 
 From stdpp Require Import finite decidable.
 
@@ -44,13 +45,11 @@ Import ctx.resolution.
 Import env.notations.
 Open Scope string_scope.
 
-(*** TERMS ***)
+(*** Program ***)
 
-Module MinCapsTermKit <: TermKit.
-  Module valuekit := MinCapsValueKit.
-  Module Export VAL := Syntax.Values.Values valuekit.
+Module Export MinCapsProgram <: Program MinCapsBase.
 
-  (** FUNCTIONS **)
+Section FunDeclKit.
   Inductive Fun : PCtx -> Ty -> Set :=
   | read_reg        : Fun ["rreg" ∶ ty_enum regname ] ty_word
   | read_reg_cap    : Fun ["creg" ∶ ty_enum regname ] ty_cap
@@ -133,49 +132,11 @@ Module MinCapsTermKit <: TermKit.
   Definition 𝑭𝑿  : PCtx -> Ty -> Set := FunX.
   Definition 𝑳  : PCtx -> Set := Lem.
 
-  Inductive Reg : Ty -> Set :=
-  | pc   : Reg ty_cap
-  | reg0 : Reg ty_word
-  | reg1 : Reg ty_word
-  | reg2 : Reg ty_word
-  | reg3 : Reg ty_word.
+End FunDeclKit.
 
-  Section TransparentObligations.
-    Local Set Transparent Obligations.
-    Derive Signature NoConfusion for Reg.
-  End TransparentObligations.
+Include FunDeclMixin MinCapsBase.
 
-  Definition 𝑹𝑬𝑮 : Ty -> Set := Reg.
-  Definition 𝑹𝑬𝑮_eq_dec : EqDec (sigT Reg).
-  Proof.
-    intros [? []] [? []]; cbn;
-      first
-        [ left; now apply eq_refl
-        | right; intros e; dependent elimination e
-        ].
-  Defined.
-
-  Instance 𝑹𝑬𝑮_eq_decision : EqDecision (sigT Reg).
-  Proof.
-    intros xy; eapply 𝑹𝑬𝑮_eq_dec.
-  Defined.
-
-  Program Instance 𝑹𝑬𝑮_finite : Finite (sigT Reg) := {| enum := [ existT _ pc; existT _ reg0; existT _ reg1; existT _ reg2; existT _ reg3 ]%list |}.
-  Next Obligation.
-    now eapply (nodup_fixed (H := 𝑹𝑬𝑮_eq_dec)).
-  Defined.
-  Next Obligation.
-    intros x.
-    refine (@bool_decide_unpack _ (elem_of_list_dec _ _) _).
-    destruct x; now destruct r.
-  Qed.
-
-End MinCapsTermKit.
-
-(*** PROGRAM ***)
-
-Module MinCapsProgramKit <: (ProgramKit MinCapsTermKit).
-  Module Export TM := Terms MinCapsTermKit.
+Section FunDefKit.
 
   Local Coercion stm_exp : Exp >-> Stm.
 
@@ -210,8 +171,6 @@ Module MinCapsProgramKit <: (ProgramKit MinCapsTermKit).
   Local Notation "'w'"  := "w" : string_scope.
   Local Notation "'immediate'" := "immediate" : string_scope.
   Local Notation "'offset'" := "offset" : string_scope.
-
-  Notation stm_call_external := stm_foreign.
 
   Notation "'use' 'lemma' f args" := (stm_lemma f args%arg) (at level 10, f at next level) : exp_scope.
   Notation "'use' 'lemma' f" := (stm_lemma f env.nil) (at level 10, f at next level) : exp_scope.
@@ -828,7 +787,7 @@ Module MinCapsProgramKit <: (ProgramKit MinCapsTermKit).
 
   End ExecStore.
 
-  Definition Pi {Δ τ} (f : Fun Δ τ) : Stm Δ τ :=
+  Definition FunDef {Δ τ} (f : Fun Δ τ) : Stm Δ τ :=
     match f with
     | read_reg        => fun_read_reg
     | read_reg_cap    => fun_read_reg_cap
@@ -880,15 +839,11 @@ Module MinCapsProgramKit <: (ProgramKit MinCapsTermKit).
     | loop            => fun_loop
     end.
 
-  Definition RegStore := GenericRegStore.
-  Definition read_register := generic_read_register.
-  Definition write_register := generic_write_register.
-  Definition read_write := generic_read_write.
-  Definition read_write_distinct := generic_read_write_distinct.
-  Definition write_read := generic_write_read.
-  Definition write_write := generic_write_write.
+End FunDefKit.
 
-  (* MEMORY *)
+Include DefaultRegStoreKit MinCapsBase.
+
+Section ForeignKit.
   Definition Memory := Addr -> (Z + Capability).
 
   Definition fun_rM (μ : Memory) (addr : Val ty_int) : Val ty_memval :=
@@ -922,5 +877,8 @@ Module MinCapsProgramKit <: (ProgramKit MinCapsTermKit).
     - repeat depelim args; repeat eexists; constructor.
     - repeat depelim args. exists γ, μ, (inr ret), (inr ret). reflexivity.
   Qed.
+End ForeignKit.
 
-End MinCapsProgramKit.
+Include ProgramMixin MinCapsBase.
+
+End MinCapsProgram.

@@ -26,28 +26,28 @@
 (* SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.               *)
 (******************************************************************************)
 
-From MinimalCaps Require Import
-     Machine Contracts.
-
 From Coq Require Import
      Init.Nat
-     ZArith.Znat
      Program.Tactics
      Strings.String
      ZArith.ZArith
+     ZArith.Znat
      micromega.Lia.
 
 From Equations Require Import
      Equations.
 
 From Katamaran Require Import
-     Sep.Spec
-     Symbolic.Mutator
-     Syntax.
-From Katamaran Require
      Environment
      Iris.Model
-     Sep.Logic.
+     Sep.Hoare
+     Sep.Logic
+     Specification
+     Symbolic.Mutator
+     Semantics.
+
+From MinimalCaps Require Import
+     Machine Contracts.
 
 From iris.base_logic Require lib.gen_heap lib.iprop.
 From iris.base_logic Require Export invariants.
@@ -58,13 +58,21 @@ From iris.proofmode Require Import tactics.
 From iris_string_ident Require Import ltac2_string_ident.
 From stdpp Require namespaces fin_maps.
 
-Require Import Coq.Program.Equality.
-
 Set Implicit Arguments.
 
 Module gh := iris.base_logic.lib.gen_heap.
 
+Module MinCapsSemantics <: Semantics MinCapsBase MinCapsProgram :=
+  MakeSemantics MinCapsBase MinCapsProgram.
+
 Module MinCapsModel.
+
+  Import MinCapsBase.
+  Import MinCapsProgram.
+  Import MinCapsSpecification.
+
+  Include ProgramLogicOn MinCapsBase MinCapsSpecification.
+  Include Iris MinCapsBase MinCapsSpecification MinCapsSemantics.
 
   Ltac destruct_syminstance ι :=
     repeat
@@ -85,12 +93,9 @@ Module MinCapsModel.
       | ι : Env _ ctx.nil        |- _ => destruct_syminstance ι
       end.
 
-  Module MinCapsIrisHeapKit <: Iris.Model.IrisHeapKit MinCapsTermKit MinCapsProgramKit MinCapsAssertionKit MinCapsSymbolicContractKit.
+  Module MinCapsIrisHeapKit <: IrisHeapKit.
 
     Variable maxAddr : nat.
-
-    Module IrisRegs := Iris.Model.IrisRegisters MinCapsTermKit MinCapsProgramKit MinCapsAssertionKit MinCapsSymbolicContractKit.
-    Export IrisRegs.
 
     Section WithIrisNotations.
 
@@ -169,7 +174,7 @@ Module MinCapsModel.
       end.
 
     Lemma MinCaps_ptsreg_regtag_to_reg `{sailRegG Σ} (reg : RegName) (v : Z + Capability) :
-      MinCaps_ptsreg reg v = reg_pointsTo (MinCapsSymbolicContractKit.regtag_to_reg reg) v.
+      MinCaps_ptsreg reg v = reg_pointsTo (regtag_to_reg reg) v.
     Proof.
       by destruct reg.
     Qed.
@@ -372,8 +377,8 @@ Module MinCapsModel.
 
     Import env.notations.
 
-    Definition luser_inst `{sailRegG Σ} `{invG Σ} (p : Predicate) (ts : Env Val (MinCapsAssertionKit.𝑯_Ty p)) (mG : memG Σ) : iProp Σ :=
-      (match p return Env Val (MinCapsAssertionKit.𝑯_Ty p) -> iProp Σ with
+    Definition luser_inst `{sailRegG Σ} `{invG Σ} (mG : memG Σ) (p : Predicate) (ts : Env Val (𝑯_Ty p)) : iProp Σ :=
+      (match p return Env Val (𝑯_Ty p) -> iProp Σ with
       | ptsreg => fun ts => MinCaps_ptsreg (env.head (env.tail ts)) (env.head ts)
       | ptsto => fun ts => mapsto (hG := mc_ghG (mcMemG := mG)) (env.head (env.tail ts)) (DfracOwn 1) (env.head ts)
       | safe => fun ts => MinCaps_safe (mG := mG) (env.head ts)
@@ -385,12 +390,12 @@ Module MinCapsModel.
     Proof. destruct w; simpl; rewrite fixpoint_MinCaps_safe1_eq; simpl; first apply _.
            destruct c; destruct cap_permission; apply _. Qed.
 
-    Definition lduplicate_inst `{sailRegG Σ} `{invG Σ} (p : Predicate) (ts : Env Val (MinCapsAssertionKit.𝑯_Ty p)) :
-      forall (mG : memG Σ),
+    Definition lduplicate_inst `{sailRegG Σ} `{invG Σ} (mG : memG Σ) :
+      forall (p : Predicate) (ts : Env Val (𝑯_Ty p)),
         is_duplicable p = true ->
-        (luser_inst p ts mG) ⊢ (luser_inst p ts mG ∗ luser_inst p ts mG).
+        (luser_inst mG p ts) ⊢ (luser_inst mG p ts ∗ luser_inst mG p ts).
     Proof.
-      iIntros (mG hdup) "H".
+      iIntros (p ts hdup) "H".
       destruct p; inversion hdup;
       iDestruct "H" as "#H";
       auto.
@@ -399,48 +404,47 @@ Module MinCapsModel.
     End WithIrisNotations.
   End MinCapsIrisHeapKit.
 
-  Module Soundness := Iris.Model.IrisSoundness MinCapsTermKit MinCapsProgramKit MinCapsAssertionKit MinCapsSymbolicContractKit MinCapsIrisHeapKit.
-  Export Soundness.
+  Module Import MinCapsIrisInstance := IrisInstance MinCapsIrisHeapKit.
 
   Section Lemmas.
     Context `{sg : sailG Σ}.
 
     Lemma gen_dummy_sound :
-      ValidLemma MinCapsSymbolicContractKit.lemma_gen_dummy.
+      ValidLemma MinCapsSpecification.lemma_gen_dummy.
     Proof.
       intros ι. destruct_syminstance ι. cbn.
       auto.
     Qed.
 
     Lemma open_ptsreg_sound :
-      ValidLemma MinCapsSymbolicContractKit.lemma_open_ptsreg.
+      ValidLemma MinCapsSpecification.lemma_open_ptsreg.
     Proof.
       intros ι. destruct_syminstance ι. cbn.
       destruct reg; auto.
     Qed.
 
     Lemma close_ptsreg_sound {R} :
-      ValidLemma (MinCapsSymbolicContractKit.lemma_close_ptsreg R).
+      ValidLemma (MinCapsSpecification.lemma_close_ptsreg R).
     Proof.
       intros ι. destruct_syminstance ι. cbn.
       rewrite MinCapsIrisHeapKit.MinCaps_ptsreg_regtag_to_reg; auto.
     Qed.
 
     Lemma open_gprs_sound :
-      ValidLemma (MinCapsSymbolicContractKit.lemma_open_gprs).
+      ValidLemma (MinCapsSpecification.lemma_open_gprs).
     Proof.
       intros ι; destruct_syminstance ι; cbn.
       iIntros "[HR0 [HR1 [HR2 [HR3 _]]]]".
-      iSplitR "HR3"; try done.
-      iSplitR "HR2"; try done.
-      iSplitR "HR1"; try done.
+      iSplitL "HR0"; try done.
+      iSplitL "HR1"; try done.
+      iSplitL "HR2"; try done.
     Qed.
 
     Lemma close_gprs_sound :
-      ValidLemma (MinCapsSymbolicContractKit.lemma_close_gprs).
+      ValidLemma (MinCapsSpecification.lemma_close_gprs).
     Proof.
       intros ι; destruct_syminstance ι; cbn.
-      iIntros "[[[HR0 HR1] HR2] HR3]".
+      iIntros "[HR0 [HR1 [HR2 HR3]]]".
       iSplitL "HR0"; try done.
       iSplitL "HR1"; try done.
       iSplitL "HR2"; try done.
@@ -448,21 +452,21 @@ Module MinCapsModel.
     Qed.
 
     Lemma int_safe_sound :
-      ValidLemma MinCapsSymbolicContractKit.lemma_int_safe.
+      ValidLemma MinCapsSpecification.lemma_int_safe.
     Proof.
       intros ι. destruct_syminstance ι. cbn.
       rewrite MinCapsIrisHeapKit.fixpoint_MinCaps_safe1_eq; auto.
     Qed.
 
     (* Lemma duplicate_safe_sound : *)
-    (*   ValidLemma MinCapsSymbolicContractKit.lemma_duplicate_safe. *)
+    (*   ValidLemma MinCapsSpecification.lemma_duplicate_safe. *)
     (* Proof. *)
     (*   intros ι. destruct_syminstance ι. cbn. *)
     (*   iIntros "#Hsafe". now iSplit. *)
     (* Qed. *)
 
     Lemma safe_move_cursor_sound :
-      ValidLemma MinCapsSymbolicContractKit.lemma_safe_move_cursor.
+      ValidLemma MinCapsSpecification.lemma_safe_move_cursor.
     Proof.
       intros ι. destruct_syminstance ι. cbn.
       iIntros "#Hsafe".
@@ -473,7 +477,7 @@ Module MinCapsModel.
     Qed.
 
     Lemma safe_sub_perm_sound :
-      ValidLemma MinCapsSymbolicContractKit.lemma_safe_sub_perm.
+      ValidLemma MinCapsSpecification.lemma_safe_sub_perm.
     Proof.
       intros ι. destruct_syminstance ι. cbn.
       iIntros "[#Hsafe %Hp]".
@@ -484,10 +488,10 @@ Module MinCapsModel.
     Qed.
 
     Lemma safe_within_range_sound :
-      ValidLemma MinCapsSymbolicContractKit.lemma_safe_within_range.
+      ValidLemma MinCapsSpecification.lemma_safe_within_range.
     Proof.
       intros ι. destruct_syminstance ι. cbn.
-      iIntros "[[#Hsafe _] Hp]".
+      iIntros "[#Hsafe [_ Hp]]".
       iSplit; [done|].
       iDestruct "Hp" as (H) "_".
       unfold is_true in H;
@@ -503,7 +507,7 @@ Module MinCapsModel.
   Lemma dI_sound `{sg : sailG Σ} `{invG} {Γ es δ} :
     forall code : Val ty_int,
     evals es δ = env.snoc env.nil (MkB _ ty_int) code
-    → ⊢ semTriple δ (⌜is_true true⌝ ∧ emp) (stm_call_external dI es)
+    → ⊢ semTriple δ (⌜is_true true⌝ ∧ emp) (stm_foreign dI es)
           (λ (v : Val ty_instr) (δ' : CStore Γ),
              (⌜is_true true⌝ ∧ emp) ∗ ⌜δ' = δ⌝).
   Proof.
@@ -521,38 +525,24 @@ Module MinCapsModel.
 
   Lemma rM_sound `{sg : sailG Σ} `{invG} {Γ es δ} :
     forall a (p : Val ty_perm) (b e : Val ty_addr),
-      evals es δ = env.snoc env.nil (MkB _ ty_addr) a
-    → ⊢ semTriple δ
-        ((MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG)
-                                          (inr {|
-                                               cap_permission := p;
-                                               cap_begin := b;
-                                               cap_end := e;
-                                               cap_cursor := a |})
-                                          ∗ ⌜ Subperm R p ⌝ ∧ emp)
-           ∗ ⌜is_true ((b <=? a)%Z && (a <=? e)%Z)⌝ ∧ emp)
-        (stm_call_external rM es)
-        (λ (v3 : Z + Capability) (δ' : CStore Γ),
-         (MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG)
-                                          (inr {| cap_permission := p;
-                                                  cap_begin := b;
-                                                  cap_end := e;
-                                                  cap_cursor := a |})
-           ∗ MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG) v3)
-           ∗ ⌜δ' = δ⌝).
+      evals es δ = env.snoc env.nil (MkB _ ty_addr) a ->
+    ⊢ semTriple δ
+        (MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG)
+           (inr {| cap_permission := p; cap_begin := b; cap_end := e; cap_cursor := a |})
+         ∗ (⌜Subperm R p⌝ ∧ emp) ∗ ⌜(b <=? a)%Z && (a <=? e)%Z = true⌝ ∧ emp)
+        (stm_foreign rM es)%env
+        (λ (v : Z + Capability) (δ' : CStore Γ),
+           (MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG)
+              (inr {| cap_permission := p; cap_begin := b; cap_end := e; cap_cursor := a |})
+            ∗ MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG) v) ∗ ⌜δ' = δ⌝).
   Proof.
-    intros a p b e.
-    destruct p;
-      iIntros (Heq) "[[#Hsafe [% %]] [% %]]";
-      try discriminate.
+    intros a p b e Heq.
+    iIntros "[#Hsafe [[%Hsubp _] [%Hbounds _]]]".
+    apply andb_prop in Hbounds as [Hb%Zle_is_le_bool He%Zle_is_le_bool].
+    rewrite wp_unfold.
+    destruct p; try discriminate.
     (* TODO: clean this up! *)
-    - rewrite wp_unfold;
-        unfold is_true in H2;
-        apply andb_prop in H2;
-        destruct H2 as [Hb He];
-        apply Zle_is_le_bool in Hb;
-        apply Zle_is_le_bool in He;
-        iAssert (inv (MinCapsIrisHeapKit.mc_invNs.@a) (∃ w, gen_heap.mapsto a (dfrac.DfracOwn 1) w ∗ fixpoint (MinCapsIrisHeapKit.MinCaps_safe1) w))%I as "Hown".
+    - iAssert (inv (MinCapsIrisHeapKit.mc_invNs.@a) (∃ w, gen_heap.mapsto a (dfrac.DfracOwn 1) w ∗ MinCapsIrisHeapKit.MinCaps_safe w))%I as "Hown".
       { rewrite MinCapsIrisHeapKit.fixpoint_MinCaps_safe1_eq; simpl.
         iDestruct "Hsafe" as "[Hsafe | %]"; try lia.
         iAssert (⌜ (b <= e)%Z ⌝)%I as "-# Htmp".
@@ -572,10 +562,9 @@ Module MinCapsModel.
       iModIntro.
       iSplitR; first by intuition.
       iIntros (e2 σ'' efs) "%".
-      cbn in H4.
-      dependent elimination H4.
+      cbn in H1.
+      dependent elimination H1.
       dependent elimination s.
-      rewrite Heq in f1.
       cbn in f1.
       dependent elimination f1.
       do 2 iModIntro.
@@ -599,16 +588,10 @@ Module MinCapsModel.
       iSplitL; trivial.
       iSplitL; try iAssumption.
       unfold fun_rM.
-      apply map_Forall_lookup_1 with (i := a) (x := v) in H2.
-      simpl in H2; rewrite H2; iAssumption.
-      assumption.
-    - rewrite wp_unfold;
-        unfold is_true in H2;
-        apply andb_prop in H2;
-        destruct H2 as [Hb He];
-        apply Zle_is_le_bool in Hb;
-        apply Zle_is_le_bool in He;
-        iAssert (inv (MinCapsIrisHeapKit.mc_invNs.@a) (∃ w, gen_heap.mapsto a (dfrac.DfracOwn 1) w ∗ fixpoint (MinCapsIrisHeapKit.MinCaps_safe1) w))%I as "Hown".
+      apply map_Forall_lookup_1 with (i := a) (x := v) in H0; auto.
+      simpl in H0. subst. rewrite Heq.
+      iAssumption.
+    - iAssert (inv (MinCapsIrisHeapKit.mc_invNs.@a) (∃ w, gen_heap.mapsto a (dfrac.DfracOwn 1) w ∗ fixpoint (MinCapsIrisHeapKit.MinCaps_safe1) w))%I as "Hown".
       { rewrite MinCapsIrisHeapKit.fixpoint_MinCaps_safe1_eq; simpl.
         iDestruct "Hsafe" as "[Hsafe | %]"; try lia.
         iAssert (⌜ (b <= e)%Z ⌝)%I as "-# Htmp".
@@ -628,10 +611,9 @@ Module MinCapsModel.
       iModIntro.
       iSplitR; first by intuition.
       iIntros (e2 σ'' efs) "%".
-      cbn in H4.
-      dependent elimination H4.
+      cbn in H1.
+      dependent elimination H1.
       dependent elimination s.
-      rewrite Heq in f1.
       cbn in f1.
       dependent elimination f1.
       do 2 iModIntro.
@@ -655,9 +637,9 @@ Module MinCapsModel.
       iSplitL; trivial.
       iSplitL; try iAssumption.
       unfold fun_rM.
-      apply map_Forall_lookup_1 with (i := a) (x := v) in H2.
-      simpl in H2; rewrite H2; iAssumption.
-      assumption.
+      apply map_Forall_lookup_1 with (i := a) (x := v) in H0; auto.
+      simpl in H0. subst. rewrite Heq.
+      iAssumption.
   Qed.
 
   Lemma wM_sound `{sg : sailG Σ} `{invG} {Γ es δ} :
@@ -665,16 +647,16 @@ Module MinCapsModel.
       evals es δ = env.snoc (env.snoc env.nil (MkB _ ty_addr) a)
                             (MkB _ ty_memval) w
     → ⊢ semTriple δ
-        (((MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG) w
-           ∗ MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG)
+        (MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG) w
+         ∗ MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG)
                                           (inr {|
                                                cap_permission := p;
                                                cap_begin := b;
                                                cap_end := e;
-                                               cap_cursor := a |}))
-            ∗ ⌜ Subperm RW p ⌝ ∧ emp)
-           ∗ ⌜is_true ((b <=? a)%Z && (a <=? e)%Z)⌝ ∧ emp)
-        (stm_call_external wM es)
+                                               cap_cursor := a |})
+         ∗ (⌜ Subperm RW p ⌝ ∧ emp)
+         ∗ ⌜is_true ((b <=? a)%Z && (a <=? e)%Z)⌝ ∧ emp)
+        (stm_foreign wM es)
         (λ (v3 : ()) (δ' : CStore Γ),
          (MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG)
                                           (inr {| cap_permission := p;
@@ -684,19 +666,13 @@ Module MinCapsModel.
            ∗ ⌜v3 = tt⌝ ∧ emp)
            ∗ ⌜δ' = δ⌝).
     Proof.
-      intros a w p b e.
-      destruct p;
-        iIntros (Heq) "[[[#Hwsafe #Hsafe] [% %]] [% %]]";
-        try discriminate.
-      clear H0 H1 H3.
+      intros a w p b e Heq.
+      iIntros "[#Hwsafe [#Hsafe [[%Hsubp _] [%Hbounds _]]]]".
+      apply andb_prop in Hbounds as [Hb%Zle_is_le_bool He%Zle_is_le_bool].
       rewrite wp_unfold.
+      destruct p; try discriminate. clear Hsubp.
       iIntros (σ' ks1 ks n) "[Hregs Hmem]".
       iDestruct "Hmem" as (memmap) "[Hmem' %]".
-      unfold is_true in H2.
-      apply andb_prop in H2.
-      destruct H2 as [Hb He].
-      apply Zle_is_le_bool in Hb.
-      apply Zle_is_le_bool in He.
       iAssert (inv (MinCapsIrisHeapKit.mc_invNs.@a) (∃ w, gen_heap.mapsto a (dfrac.DfracOwn 1) w ∗ fixpoint (MinCapsIrisHeapKit.MinCaps_safe1) w))%I as "Hown".
       { do 2 rewrite MinCapsIrisHeapKit.fixpoint_MinCaps_safe1_eq; simpl.
         iDestruct "Hsafe" as "[Hsafe | %]"; try lia.
