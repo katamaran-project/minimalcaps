@@ -11,7 +11,8 @@ defaults: &defaults
           opam repo add katamaran https://github.com/katamaran-project/opam-repository.git
           opam install coq-katamaran
           opam list
-          make -j$(nproc)
+          make Makefile.coq
+          make -j$(nproc) -f Makefile.coq pretty-timed
   resource_class: medium+
 
 jobs:
