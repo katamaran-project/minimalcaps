@@ -532,9 +532,7 @@ Module MinCapsModel.
          ∗ (⌜Subperm R p⌝ ∧ emp) ∗ ⌜(b <=? a)%Z && (a <=? e)%Z = true⌝ ∧ emp)
         (stm_foreign rM es)%env
         (λ (v : Z + Capability) (δ' : CStore Γ),
-           (MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG)
-              (inr {| cap_permission := p; cap_begin := b; cap_end := e; cap_cursor := a |})
-            ∗ MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG) v) ∗ ⌜δ' = δ⌝).
+           (MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG) v) ∗ ⌜δ' = δ⌝).
   Proof.
     intros a p b e Heq.
     iIntros "[#Hsafe [[%Hsubp _] [%Hbounds _]]]".
@@ -586,7 +584,6 @@ Module MinCapsModel.
       iSplitL; trivial.
       iApply wp_value; cbn.
       iSplitL; trivial.
-      iSplitL; try iAssumption.
       unfold fun_rM.
       apply map_Forall_lookup_1 with (i := a) (x := v) in H0; auto.
       simpl in H0. subst. rewrite Heq.
@@ -635,7 +632,6 @@ Module MinCapsModel.
       iSplitL; trivial.
       iApply wp_value; cbn.
       iSplitL; trivial.
-      iSplitL; try iAssumption.
       unfold fun_rM.
       apply map_Forall_lookup_1 with (i := a) (x := v) in H0; auto.
       simpl in H0. subst. rewrite Heq.
@@ -658,13 +654,7 @@ Module MinCapsModel.
          ∗ ⌜is_true ((b <=? a)%Z && (a <=? e)%Z)⌝ ∧ emp)
         (stm_foreign wM es)
         (λ (v3 : ()) (δ' : CStore Γ),
-         (MinCapsIrisHeapKit.MinCaps_safe (mG := sailG_memG)
-                                          (inr {| cap_permission := p;
-                                                  cap_begin := b;
-                                                  cap_end := e;
-                                                  cap_cursor := a |})
-           ∗ ⌜v3 = tt⌝ ∧ emp)
-           ∗ ⌜δ' = δ⌝).
+         (⌜v3 = tt⌝ ∧ emp) ∗ ⌜δ' = δ⌝).
     Proof.
       intros a w p b e Heq.
       iIntros "[#Hwsafe [#Hsafe [[%Hsubp _] [%Hbounds _]]]]".

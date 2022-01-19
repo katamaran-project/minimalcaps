@@ -827,12 +827,7 @@ Section ContractDefKit.
                    asn_within_bounds (term_var "address") (term_var "b") (term_var "e");
        sep_contract_result          := "rM_result";
        sep_contract_postcondition   :=
-         asn_csafe (term_record capability
-                            [term_var "p",
-                             term_var "b",
-                             term_var "e",
-                             term_var "address"])
-           ∗ asn_safe (term_var "rM_result")
+         asn_safe (term_var "rM_result")
     |}.
 
   Definition sep_contract_wM : SepContractFunX wM :=
@@ -849,12 +844,7 @@ Section ContractDefKit.
                   ∗ asn_within_bounds (term_var "address") (term_var "b") (term_var "e");
        sep_contract_result          := "wM_result";
        sep_contract_postcondition   :=
-         asn_csafe (term_record capability
-                            [term_var "p",
-                             term_var "b",
-                             term_var "e",
-                             term_var "address"])
-           ∗ asn_eq (term_var "wM_result") (term_val ty_unit tt)
+         asn_eq (term_var "wM_result") (term_val ty_unit tt)
     |}.
 
   Definition sep_contract_dI : SepContractFunX dI :=
