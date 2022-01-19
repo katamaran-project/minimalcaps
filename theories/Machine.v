@@ -147,7 +147,7 @@ Section FunDefKit.
   Local Notation "'rv'" := (@exp_var _ "rv" _ _) : exp_scope.
   Local Notation "'i'"  := (@exp_var _ "i" _ _) : exp_scope.
   Local Notation "'lv'" := (@exp_var _ "lv" _ _) : exp_scope.
-  Local Notation "'n'"  := (@exp_var _ "n" _ _) : exn_scope.
+  Local Notation "'n'"  := (@exp_var _ "n" _ _) : exp_scope.
   Local Notation "'p'"  := (@exp_var _ "p" _ _) : exp_scope.
   Local Notation "'p1'" := (@exp_var _ "p1" _ _) : exp_scope.
   Local Notation "'p2'" := (@exp_var _ "p2" _ _) : exp_scope.

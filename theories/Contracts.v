@@ -39,7 +39,7 @@ From Equations Require Import
      Equations.
 
 From Katamaran Require Import
-     Notation
+     Notations
      Specification
      Symbolic.Mutator
      Symbolic.Solver.
@@ -128,6 +128,13 @@ Section PredicateKit.
       end
     }.
   Instance 𝑯_eq_dec : EqDec 𝑯 := Predicate_eqdec.
+
+  Definition 𝑯_precise (p : 𝑯) : option (Precise 𝑯_Ty p) :=
+    match p with
+    | ptsreg => Some (exist _ ([ty_enum regname], [ty_word]) eq_refl)
+    | ptsto => Some (exist _ ([ty_addr], [ty_memval]) eq_refl)
+    | _ => None
+    end.
 
 End PredicateKit.
 

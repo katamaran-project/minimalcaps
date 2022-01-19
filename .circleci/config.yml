@@ -12,6 +12,7 @@ defaults: &defaults
           opam install coq-katamaran
           opam list
           make -j$(nproc)
+  resource_class: medium+
 
 jobs:
   coq-8-12: {<<: *defaults, docker: [{image: "skeuchel/coq:8.12"}]}
