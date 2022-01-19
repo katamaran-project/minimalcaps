@@ -9,11 +9,11 @@ defaults: &defaults
         command: |
           eval $(opam env)
           opam repo add katamaran https://github.com/katamaran-project/opam-repository.git
-          opam install coq-katamaran
+          opam install -vy coq-katamaran
           opam list
           make Makefile.coq
           make -j$(nproc) -f Makefile.coq pretty-timed
-  # resource_class: medium+
+  resource_class: medium+
 
 jobs:
   coq-8-12: {<<: *defaults, docker: [{image: "ghcr.io/katamaran-project/coq:8.12.2_iris-3.4.0_equations-1.2.4"}]}
