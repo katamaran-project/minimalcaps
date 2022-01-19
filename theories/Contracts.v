@@ -185,9 +185,9 @@ Section ContractDefKit.
 
 
   (* regInv(r) = ∃ w : word. r ↦ w * safe(w) *)
-  Definition regInv {Σ} (r : RegName) : Assertion Σ :=
+  Definition regInv {Σ} (r : Reg ty_word) : Assertion Σ :=
     asn_exist "w" ty_word
-              (term_val (ty_enum regname) r ↦r (@term_var _ _ _ ctx.in_zero) ∗
+              (r ↦ (@term_var _ _ _ ctx.in_zero) ∗
                 asn_safe (@term_var _ _ _ ctx.in_zero)).
 
   (* regInv(r) = ∃ c : cap. r ↦ c * csafe(c) *)
@@ -196,8 +196,8 @@ Section ContractDefKit.
               (r ↦ term_var "c" ∗
                  asn_csafe (term_var "c")).
 
-  Definition asn_and_regs {Σ} (f : RegName -> Assertion Σ) : Assertion Σ :=
-    f R0 ∗ f R1 ∗ f R2 ∗ f R3.
+  Definition asn_and_regs {Σ} (f : Reg ty_word -> Assertion Σ) : Assertion Σ :=
+    f reg0 ∗ f reg1 ∗ f reg2 ∗ f reg3.
 
   Definition asn_regs_ptsto_safe {Σ} : Assertion Σ :=
     asn_and_regs regInv.
@@ -228,47 +228,35 @@ Section ContractDefKit.
     SepContract Δ τ.
 
   Definition sep_contract_read_reg : SepContractFun read_reg :=
-    {| sep_contract_logic_variables := ["rreg" ∶ ty_enum regname, "w" ∶ ty_word];
-       sep_contract_localstore      := [term_var "rreg"]%arg;
-       sep_contract_precondition    := term_var "rreg" ↦r term_var "w";
+    {| sep_contract_logic_variables := ["rreg" ∶ ty_enum regname];
+       sep_contract_localstore      := [term_var "rreg"];
+       sep_contract_precondition    := asn_gprs;
        sep_contract_result          := "result_read_reg";
-       sep_contract_postcondition   :=
-         asn_eq (term_var "result_read_reg") (term_var "w") ∗
-                term_var "rreg" ↦r term_var "w";
+       sep_contract_postcondition   := asn_gprs ∗ asn_safe (term_var "result_read_reg")
     |}.
 
   Definition sep_contract_read_reg_cap : SepContractFun read_reg_cap :=
-    {| sep_contract_logic_variables := ["creg" ∶ ty_enum regname, "w" ∶ ty_word];
-       sep_contract_localstore      := [term_var "creg"]%arg;
-       sep_contract_precondition    := term_var "creg" ↦r term_var "w";
+    {| sep_contract_logic_variables := ["creg" ∶ ty_enum regname];
+       sep_contract_localstore      := [term_var "creg"];
+       sep_contract_precondition    := asn_gprs;
        sep_contract_result          := "result_read_reg_cap";
-       sep_contract_postcondition   :=
-         asn_exist "c" ty_cap
-                   (asn_eq (term_var "result_read_reg_cap") (term_var "c") ∗
-                           asn_eq (term_var "w") (term_inr (term_var "c")) ∗
-                           term_var "creg" ↦r (term_var "w"));
+       sep_contract_postcondition   := asn_gprs ∗ asn_csafe (term_var "result_read_reg_cap")
     |}.
 
   Definition sep_contract_read_reg_num : SepContractFun read_reg_num :=
-    {| sep_contract_logic_variables := ["nreg" ∶ ty_enum regname, "w" ∶ ty_word];
-       sep_contract_localstore      := [term_var "nreg"]%arg;
-       sep_contract_precondition    := term_var "nreg" ↦r term_var "w";
+    {| sep_contract_logic_variables := ["nreg" ∶ ty_enum regname];
+       sep_contract_localstore      := [term_var "nreg"];
+       sep_contract_precondition    := asn_gprs;
        sep_contract_result          := "result_read_reg_num";
-       sep_contract_postcondition   :=
-         asn_exist "i" ty_int
-                   (asn_eq (term_var "result_read_reg_num") (term_var "i") ∗
-                           asn_eq (term_var "w") (term_inl (term_var "i")) ∗
-                           term_var "nreg" ↦r term_var "w");
+       sep_contract_postcondition   := asn_gprs ∗ asn_safe (term_inl (term_var "result_read_reg_num"))
     |}.
 
-  Definition sep_contract_write_reg : SepContract ["wreg" ∶ ty_enum regname, "w"  ∶ ty_word] ty_unit :=
+  Definition sep_contract_write_reg : SepContract ["wreg" ∶ ty_enum regname, "w" ∶ ty_word] ty_unit :=
     {| sep_contract_logic_variables := ["wreg" ∶ ty_enum regname, "w" ∶ ty_word];
-       sep_contract_localstore      := [term_var "wreg", term_var "w"]%arg;
-       sep_contract_precondition    := asn_exist "old_word" ty_word (term_var "wreg" ↦r term_var "old_word");
+       sep_contract_localstore      := [term_var "wreg", term_var "w"];
+       sep_contract_precondition    := asn_gprs ∗ asn_safe (term_var "w");
        sep_contract_result          := "result_write_reg";
-       sep_contract_postcondition   :=
-         asn_eq (term_var "result_write_reg") (term_val ty_unit tt) ∗
-                term_var "wreg" ↦r term_var "w";
+       sep_contract_postcondition   := asn_eq (term_var "result_write_reg") (term_val ty_unit tt) ∗ asn_gprs
     |}.
 
   Definition sep_contract_next_pc : SepContract ctx.nil ty_cap :=
@@ -315,8 +303,7 @@ Section ContractDefKit.
        sep_contract_localstore      := [term_var "c"]%arg;
        sep_contract_precondition    := asn_csafe (term_var "c");
        sep_contract_result          := "read_mem_result";
-       sep_contract_postcondition   :=
-         asn_csafe (term_var "c") ∗ asn_safe (term_var "read_mem_result")
+       sep_contract_postcondition   := asn_safe (term_var "read_mem_result")
     |}.
 
   Definition sep_contract_write_mem : SepContract ["c" ∶ ty_cap, "v" ∶ ty_memval ] ty_unit :=
@@ -992,9 +979,9 @@ Local Ltac solve :=
      auto
     ).
 
-Local Notation "r '↦' t" := (chunk_ptsreg r t) (at level 70, only printing).
-Local Notation "r '↦r' t" := (chunk_user ptsreg (env.nil ► (ty_enum regname ↦ r) ► (ty_word ↦ t))) (at level 70, only printing).
-Local Notation "a '↦m' t" := (chunk_user ptsto (env.nil ► (ty_addr ↦ a) ► (ty_int ↦ t))) (at level 70, only printing).
+Local Notation "r '↦' t" := (chunk_ptsreg r t) (at level 70).
+Local Notation "r '↦r' t" := (chunk_user ptsreg (env.nil ► (ty_enum regname ↦ r) ► (ty_word ↦ t))) (at level 70).
+Local Notation "a '↦m' t" := (chunk_user ptsto (env.nil ► (ty_addr ↦ a) ► (ty_int ↦ t))) (at level 70).
 Local Notation "p '∗' q" := (asn_sep p q).
 Local Notation safew w := (chunk_user safe (env.nil ► (ty_word ↦ w))).
 Local Notation asn_csafe c := (asn_chunk (chunk_user safe (env.nil ► (ty_word ↦ (term_inr c))))).
