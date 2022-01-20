@@ -9,7 +9,7 @@ defaults: &defaults
         command: |
           eval $(opam env)
           opam repo add katamaran https://github.com/katamaran-project/opam-repository.git
-          opam install -vy coq-katamaran
+          opam install -vyj2 coq-katamaran
           opam list
           make Makefile.coq
           make -j$(nproc) -f Makefile.coq pretty-timed
