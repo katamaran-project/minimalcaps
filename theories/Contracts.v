@@ -154,6 +154,7 @@ Section ContractDefKit.
   Local Notation asn_match_option T opt xl alt_inl alt_inr := (asn_match_sum T ty_unit opt xl alt_inl "_" alt_inr).
   Local Notation asn_safe w := (asn_chunk (chunk_user safe (env.nil ► (ty_word ↦ w)))).
   Local Notation asn_csafe c := (asn_chunk (chunk_user safe (env.nil ► (ty_word ↦ (term_inr c))))).
+  Local Notation asn_csafe_angelic c := (asn_chunk_angelic (chunk_user safe (env.nil ► (ty_word ↦ (term_inr c))))).
   Local Notation asn_dummy c := (asn_chunk (chunk_user dummy (env.nil ► (ty_cap ↦ c)))).
   Local Notation asn_gprs := (asn_chunk (chunk_user gprs env.nil)).
   Local Notation asn_match_cap c p b e a asn :=
@@ -818,7 +819,7 @@ Section ContractDefKit.
     {| sep_contract_logic_variables := ["address" ∶ ty_addr, "p" ∶ ty_perm, "b" ∶ ty_addr, "e" ∶ ty_addr];
        sep_contract_localstore      := [term_var "address"]%arg;
        sep_contract_precondition    :=
-         asn_csafe (term_record capability
+         asn_csafe_angelic (term_record capability
                             [term_var "p",
                              term_var "b",
                              term_var "e",
@@ -835,7 +836,7 @@ Section ContractDefKit.
        sep_contract_localstore      := [term_var "address", term_var "new_value"]%arg;
        sep_contract_precondition    :=
          asn_safe (term_var "new_value")
-                  ∗ asn_csafe (term_record capability
+                  ∗ asn_csafe_angelic (term_record capability
                                            [term_var "p",
                                             term_var "b",
                                             term_var "e",
