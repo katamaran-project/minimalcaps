@@ -129,10 +129,11 @@ Section PredicateKit.
     }.
   Instance 𝑯_eq_dec : EqDec 𝑯 := Predicate_eqdec.
 
+  Local Arguments Some {_} &.
   Definition 𝑯_precise (p : 𝑯) : option (Precise 𝑯_Ty p) :=
     match p with
-    | ptsreg => Some (exist _ ([ty_enum regname], [ty_word]) eq_refl)
-    | ptsto => Some (exist _ ([ty_addr], [ty_memval]) eq_refl)
+    | ptsreg => Some (MkPrecise [ty_enum regname] [ty_word] eq_refl)
+    | ptsto => Some (MkPrecise [ty_addr] [ty_memval] eq_refl)
     | _ => None
     end.
 
@@ -956,7 +957,7 @@ Local Ltac solve :=
        | |- VerificationCondition _ =>
          constructor;
          cbv [SymProp.safe env.remove env.lookup ctx.in_case_snoc eval_binop is_true
-              inst instantiate_term instantiate_formula inst_term inst_formula env.Env_rect];
+              inst inst_term inst_formula env.Env_rect];
          cbn
        | |- Obligation _ _ _ => constructor; cbn
        | |- Debug _ _ => constructor
@@ -1002,6 +1003,9 @@ Definition ValidContractDebug {Δ τ} (f : Fun Δ τ) : Prop :=
   | Some c => SMut.ValidContract c (FunDef f)
   | None => False
   end.
+
+(* Import List.ListNotations. *)
+(* Import SymProp.notations. *)
 
 Lemma ValidContractsFun : forall {Δ τ} (f : Fun Δ τ),
     ValidContract f.
