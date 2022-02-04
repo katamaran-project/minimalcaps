@@ -562,6 +562,7 @@ Module MinCapsModel.
       iIntros (e2 σ'' efs) "%".
       dependent elimination H1.
       dependent elimination s.
+      rewrite Heq in f1.
       cbn in f1.
       dependent elimination f1.
       do 3 iModIntro.
@@ -585,7 +586,7 @@ Module MinCapsModel.
       iSplitL; trivial.
       unfold fun_rM.
       apply map_Forall_lookup_1 with (i := a) (x := v) in H0; auto.
-      simpl in H0. subst. rewrite Heq.
+      simpl in H0. subst.
       iAssumption.
     - iAssert (inv (MinCapsIrisHeapKit.mc_invNs.@a) (∃ w, gen_heap.mapsto a (dfrac.DfracOwn 1) w ∗ fixpoint (MinCapsIrisHeapKit.MinCaps_safe1) w))%I as "Hown".
       { rewrite MinCapsIrisHeapKit.fixpoint_MinCaps_safe1_eq; simpl.
@@ -609,6 +610,7 @@ Module MinCapsModel.
       iIntros (e2 σ'' efs) "%".
       dependent elimination H1.
       dependent elimination s.
+      rewrite Heq in f1.
       cbn in f1.
       dependent elimination f1.
       do 3 iModIntro.
@@ -632,7 +634,7 @@ Module MinCapsModel.
       iSplitL; trivial.
       unfold fun_rM.
       apply map_Forall_lookup_1 with (i := a) (x := v) in H0; auto.
-      simpl in H0. subst. rewrite Heq.
+      simpl in H0. subst.
       iAssumption.
   Qed.
 

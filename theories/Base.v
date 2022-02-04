@@ -243,6 +243,8 @@ Module Export MinCapsBase <: Base.
 
   Section TypeDefKit.
 
+    Open Scope string_scope.
+
     (** UNIONS **)
     Definition 𝑼𝑲_Ty (U : 𝑼) : 𝑼𝑲 U -> Ty :=
       match U with
@@ -254,20 +256,20 @@ Module Export MinCapsBase <: Base.
         | kjal       => ty_prod ty_lv ty_int
         | kbnez      => ty_prod ty_lv ty_int
         | kmv        => ty_prod ty_lv ty_hv
-        | kld        => ty_tuple [ty_lv, ty_hv, ty_int]
-        | ksd        => ty_tuple [ty_hv, ty_lv, ty_int]
-        | kaddi      => ty_tuple [ty_lv, ty_hv, ty_int]
-        | kadd       => ty_tuple [ty_lv, ty_lv, ty_lv]
-        | ksub       => ty_tuple [ty_lv, ty_lv, ty_lv]
-        | kslt       => ty_tuple [ty_lv, ty_lv, ty_lv]
-        | kslti      => ty_tuple [ty_lv, ty_hv, ty_int]
-        | ksltu      => ty_tuple [ty_lv, ty_lv, ty_lv]
-        | ksltiu     => ty_tuple [ty_lv, ty_hv, ty_int]
+        | kld        => ty_tuple [ty_lv; ty_hv; ty_int]
+        | ksd        => ty_tuple [ty_hv; ty_lv; ty_int]
+        | kaddi      => ty_tuple [ty_lv; ty_hv; ty_int]
+        | kadd       => ty_tuple [ty_lv; ty_lv; ty_lv]
+        | ksub       => ty_tuple [ty_lv; ty_lv; ty_lv]
+        | kslt       => ty_tuple [ty_lv; ty_lv; ty_lv]
+        | kslti      => ty_tuple [ty_lv; ty_hv; ty_int]
+        | ksltu      => ty_tuple [ty_lv; ty_lv; ty_lv]
+        | ksltiu     => ty_tuple [ty_lv; ty_hv; ty_int]
         | klea       => ty_prod ty_lv ty_hv
         | krestrict  => ty_prod ty_lv ty_hv
         | krestricti => ty_prod ty_lv ty_int
-        | ksubseg    => ty_tuple [ty_lv, ty_hv, ty_hv]
-        | ksubsegi   => ty_tuple [ty_lv, ty_hv, ty_int]
+        | ksubseg    => ty_tuple [ty_lv; ty_hv; ty_hv]
+        | ksubsegi   => ty_tuple [ty_lv; ty_hv; ty_int]
         | kisptr     => ty_prod ty_lv ty_lv
         | kgetp      => ty_prod ty_lv ty_lv
         | kgetb      => ty_prod ty_lv ty_lv
@@ -363,9 +365,9 @@ Module Export MinCapsBase <: Base.
 
     Definition 𝑹𝑭_Ty (R : 𝑹) : NCtx 𝑹𝑭 Ty :=
       match R with
-      | capability => [ "cap_permission" ∷ ty_perm,
-                        "cap_begin"      ∷ ty_addr,
-                        "cap_end"        ∷ ty_addr,
+      | capability => [ "cap_permission" ∷ ty_perm;
+                        "cap_begin"      ∷ ty_addr;
+                        "cap_end"        ∷ ty_addr;
                         "cap_cursor"     ∷ ty_addr
                       ]
       end.
@@ -375,10 +377,10 @@ Module Export MinCapsBase <: Base.
       | capability =>
         fun fields =>
           MkCap
-            (fields ‼ "cap_permission")
-            (fields ‼ "cap_begin")
-            (fields ‼ "cap_end")
-            (fields ‼ "cap_cursor")
+            fields.[??"cap_permission"]
+            fields.[??"cap_begin"]
+            fields.[??"cap_end"]
+            fields.[??"cap_cursor"]
       end%exp.
 
     Definition 𝑹_unfold (R : 𝑹) : 𝑹𝑻 R -> NamedEnv Val (𝑹𝑭_Ty R) :=

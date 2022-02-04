@@ -82,7 +82,7 @@ Section PredicateKit.
   Definition 𝑷 := PurePredicate.
   Definition 𝑷_Ty (p : 𝑷) : Ctx Ty :=
     match p with
-    | subperm => [ty_perm, ty_perm]
+    | subperm => [ty_perm; ty_perm]
     end.
 
   Definition decide_subperm (p p' : Val ty_perm) : bool :=
@@ -111,11 +111,11 @@ Section PredicateKit.
   Definition 𝑯 := Predicate.
   Definition 𝑯_Ty (p : 𝑯) : Ctx Ty :=
     match p with
-    | ptsreg => [ty_enum regname, ty_word]
-    | ptsto => [ty_addr, ty_memval]
+    | ptsreg => [ty_enum regname; ty_word]
+    | ptsto => [ty_addr; ty_memval]
     | safe => [ty_word]
     | dummy => [ty_cap]
-    | gprs => ctx.nil
+    | gprs => []
     end.
   Global Instance 𝑯_is_dup : IsDuplicable Predicate := {
     is_duplicable p :=
@@ -213,8 +213,8 @@ Section ContractDefKit.
      @post mach_inv;
      τ f(Δ...) *)
   Definition mach_inv_contract {Δ τ} : SepContract Δ τ :=
-    {| sep_contract_logic_variables := sep_contract_logvars Δ ε;
-       sep_contract_localstore      := create_localstore Δ ε;
+    {| sep_contract_logic_variables := sep_contract_logvars Δ [];
+       sep_contract_localstore      := create_localstore Δ [];
        sep_contract_precondition    := mach_inv;
        sep_contract_result          := "result_mach_inv";
        sep_contract_postcondition   := mach_inv;
@@ -253,17 +253,17 @@ Section ContractDefKit.
        sep_contract_postcondition   := asn_gprs ∗ asn_safe (term_inl (term_var "result_read_reg_num"))
     |}.
 
-  Definition sep_contract_write_reg : SepContract ["wreg" ∶ ty_enum regname, "w" ∶ ty_word] ty_unit :=
-    {| sep_contract_logic_variables := ["wreg" ∶ ty_enum regname, "w" ∶ ty_word];
-       sep_contract_localstore      := [term_var "wreg", term_var "w"];
+  Definition sep_contract_write_reg : SepContract ["wreg" ∶ ty_enum regname; "w" ∶ ty_word] ty_unit :=
+    {| sep_contract_logic_variables := ["wreg" ∶ ty_enum regname; "w" ∶ ty_word];
+       sep_contract_localstore      := [term_var "wreg"; term_var "w"];
        sep_contract_precondition    := asn_gprs ∗ asn_safe (term_var "w");
        sep_contract_result          := "result_write_reg";
        sep_contract_postcondition   := asn_eq (term_var "result_write_reg") (term_val ty_unit tt) ∗ asn_gprs
     |}.
 
-  Definition sep_contract_next_pc : SepContract ctx.nil ty_cap :=
+  Definition sep_contract_next_pc : SepContract [] ty_cap :=
     {| sep_contract_logic_variables := ["opc" ∶ ty_cap];
-       sep_contract_localstore      := env.nil;
+       sep_contract_localstore      := [];
        sep_contract_precondition    := pc ↦ term_var "opc";
        sep_contract_result          := "result_next_pc";
        sep_contract_postcondition   :=
@@ -272,15 +272,15 @@ Section ContractDefKit.
             (asn_eq
                (term_var "result_next_pc")
                (term_record capability
-                            [term_var "perm",
-                             term_var "beg",
-                             term_var "end",
+                            [term_var "perm";
+                             term_var "beg";
+                             term_var "end";
                              term_binop binop_plus (term_var "cur") (term_val ty_addr 1)]))
     |}.
 
-  Definition sep_contract_update_pc : SepContract ctx.nil ty_unit :=
+  Definition sep_contract_update_pc : SepContract [] ty_unit :=
     {| sep_contract_logic_variables := ["opc" ∶ ty_cap];
-       sep_contract_localstore      := env.nil;
+       sep_contract_localstore      := [];
        sep_contract_precondition    := pc ↦ term_var "opc" ∗ asn_csafe (term_var "opc");
        sep_contract_result          := "result_update_pc";
        sep_contract_postcondition   :=
@@ -290,8 +290,8 @@ Section ContractDefKit.
     |}.
 
   Definition sep_contract_add_pc : SepContract ["offset" ∶ ty_int] ty_unit :=
-    {| sep_contract_logic_variables := ["opc" ∶ ty_cap, "offset" ∶ ty_int];
-       sep_contract_localstore      := [term_var "offset"]%arg;
+    {| sep_contract_logic_variables := ["opc" ∶ ty_cap; "offset" ∶ ty_int];
+       sep_contract_localstore      := [term_var "offset"];
        sep_contract_precondition    := pc ↦ term_var "opc" ∗ asn_csafe (term_var "opc");
        sep_contract_result          := "result_add_pc";
        sep_contract_postcondition   :=
@@ -302,15 +302,15 @@ Section ContractDefKit.
 
   Definition sep_contract_read_mem : SepContract ["c" ∶ ty_cap ] ty_memval :=
     {| sep_contract_logic_variables := ["c" ∶ ty_cap];
-       sep_contract_localstore      := [term_var "c"]%arg;
+       sep_contract_localstore      := [term_var "c"];
        sep_contract_precondition    := asn_csafe (term_var "c");
        sep_contract_result          := "read_mem_result";
        sep_contract_postcondition   := asn_safe (term_var "read_mem_result")
     |}.
 
-  Definition sep_contract_write_mem : SepContract ["c" ∶ ty_cap, "v" ∶ ty_memval ] ty_unit :=
-    {| sep_contract_logic_variables := ["c" ∶ ty_cap, "v" ∶ ty_memval];
-       sep_contract_localstore      := [term_var "c", term_var "v"]%arg;
+  Definition sep_contract_write_mem : SepContract ["c" ∶ ty_cap; "v" ∶ ty_memval ] ty_unit :=
+    {| sep_contract_logic_variables := ["c" ∶ ty_cap; "v" ∶ ty_memval];
+       sep_contract_localstore      := [term_var "c"; term_var "v"];
        sep_contract_precondition    := asn_safe (term_var "v") ∗ asn_csafe (term_var "c");
        sep_contract_result          := "write_mem_result";
        sep_contract_postcondition   :=
@@ -319,7 +319,7 @@ Section ContractDefKit.
 
   Definition sep_contract_read_allowed : SepContract ["p" ∶ ty_perm ] ty_bool :=
     {| sep_contract_logic_variables := ["p" ∶ ty_perm];
-       sep_contract_localstore      := [term_var "p"]%arg;
+       sep_contract_localstore      := [term_var "p"];
        sep_contract_precondition    := asn_true;
        sep_contract_result          := "result_read_allowed";
        sep_contract_postcondition   := 
@@ -330,7 +330,7 @@ Section ContractDefKit.
 
   Definition sep_contract_write_allowed : SepContract ["p" ∶ ty_perm ] ty_bool :=
     {| sep_contract_logic_variables := ["p" ∶ ty_perm];
-       sep_contract_localstore      := [term_var "p"]%arg;
+       sep_contract_localstore      := [term_var "p"];
        sep_contract_precondition    := asn_true;
        sep_contract_result          := "result_write_allowed";
        sep_contract_postcondition   :=
@@ -339,9 +339,9 @@ Section ContractDefKit.
                 (asn_eq (term_var "result_write_allowed") (term_val ty_bool false));
     |}.
 
-  Definition sep_contract_upper_bound : SepContract ["a" ∶ ty_addr, "e" ∶ ty_addr ] ty_bool :=
-    {| sep_contract_logic_variables := ["a" ∶ ty_addr, "e" ∶ ty_addr ];
-       sep_contract_localstore      := [term_var "a", term_var "e"]%arg;
+  Definition sep_contract_upper_bound : SepContract ["a" ∶ ty_addr; "e" ∶ ty_addr ] ty_bool :=
+    {| sep_contract_logic_variables := ["a" ∶ ty_addr; "e" ∶ ty_addr ];
+       sep_contract_localstore      := [term_var "a"; term_var "e"];
        sep_contract_precondition    := asn_true;
        sep_contract_result          := "result_upper_bound";
        sep_contract_postcondition   := 
@@ -356,7 +356,7 @@ Section ContractDefKit.
    *)
   Definition sep_contract_within_bounds : SepContract ["c" ∶ ty_cap] ty_bool := 
     {| sep_contract_logic_variables := ["c" ∶ ty_cap];
-       sep_contract_localstore      := [term_var "c"]%arg;
+       sep_contract_localstore      := [term_var "c"];
        sep_contract_precondition    := asn_true;
        sep_contract_result          := "result_within_bounds";
        sep_contract_postcondition   :=
@@ -513,7 +513,7 @@ Section ContractDefKit.
       int perm_to_bits(p : perm) *)
   Definition sep_contract_perm_to_bits : SepContractFun perm_to_bits :=
     {| sep_contract_logic_variables := ["p" ∶ ty_perm];
-       sep_contract_localstore      := [term_var "p"]%arg;
+       sep_contract_localstore      := [term_var "p"];
        sep_contract_precondition    := asn_true;
        sep_contract_result          := "result";
        sep_contract_postcondition   := asn_true;
@@ -525,7 +525,7 @@ Section ContractDefKit.
       int perm_from_bits(i : Z) *)
   Definition sep_contract_perm_from_bits : SepContractFun perm_from_bits :=
     {| sep_contract_logic_variables := ["i" ∶ ty_int];
-       sep_contract_localstore      := [term_var "i"]%arg;
+       sep_contract_localstore      := [term_var "i"];
        sep_contract_precondition    := asn_true;
        sep_contract_result          := "result";
        sep_contract_postcondition   := asn_true;
@@ -537,7 +537,7 @@ Section ContractDefKit.
       int abs(i : int) *)
   Definition sep_contract_abs : SepContractFun abs :=
     {| sep_contract_logic_variables := ["i" ∶ ty_int];
-       sep_contract_localstore      := [term_var "i"]%arg;
+       sep_contract_localstore      := [term_var "i"];
        sep_contract_precondition    := asn_true;
        sep_contract_result          := "result";
        sep_contract_postcondition   := asn_true;
@@ -548,8 +548,8 @@ Section ContractDefKit.
       @post if p <= p' then (result = true ✱ p ≤ p') else result = false;
       int is_sub_perm(p : perm, p' : perm) *)
   Definition sep_contract_is_sub_perm : SepContractFun is_sub_perm :=
-    {| sep_contract_logic_variables := ["p" ∶ ty_perm, "p'" ∶ ty_perm];
-       sep_contract_localstore      := [term_var "p", term_var "p'"]%arg;
+    {| sep_contract_logic_variables := ["p" ∶ ty_perm; "p'" ∶ ty_perm];
+       sep_contract_localstore      := [term_var "p"; term_var "p'"];
        sep_contract_precondition    := asn_true;
        sep_contract_result          := "result_is_sub_perm";
        sep_contract_postcondition   :=
@@ -563,9 +563,9 @@ Section ContractDefKit.
       @post result = (b ≤ b' && e' ≤ e) ;
       bool is_within_range(b' e' b e : Addr) *)
   Definition sep_contract_is_within_range : SepContractFun is_within_range :=
-    {| sep_contract_logic_variables := ["b'" ∶ ty_addr, "e'" ∶ ty_addr,
-                                        "b" ∶ ty_addr, "e" ∶ ty_addr];
-       sep_contract_localstore      := [term_var "b'", term_var "e'", term_var "b", term_var "e"]%arg;
+    {| sep_contract_logic_variables := ["b'" ∶ ty_addr; "e'" ∶ ty_addr;
+                                        "b" ∶ ty_addr; "e" ∶ ty_addr];
+       sep_contract_localstore      := [term_var "b'"; term_var "e'"; term_var "b"; term_var "e"];
        sep_contract_precondition    := asn_true;
        sep_contract_result          := "result_is_within_range";
        sep_contract_postcondition   :=
@@ -705,8 +705,8 @@ Section ContractDefKit.
   Proof. intros ? ? []; try constructor. Qed.
 
   Definition lemma_open_ptsreg : SepLemma open_ptsreg :=
-    {| lemma_logic_variables := [ "reg" ∶ ty_enum regname, "w" ∶ ty_word];
-       lemma_patterns        := [term_var "reg"]%arg;
+    {| lemma_logic_variables := [ "reg" ∶ ty_enum regname; "w" ∶ ty_word];
+       lemma_patterns        := [term_var "reg"];
        lemma_precondition    := term_var "reg" ↦r term_var "w";
        lemma_postcondition   :=
          asn_match_enum
@@ -720,26 +720,25 @@ Section ContractDefKit.
     |}.
 
   Definition lemma_open_gprs : SepLemma open_gprs :=
-    {| lemma_logic_variables := ctx.nil;
-       lemma_patterns        := env.nil;
+    {| lemma_logic_variables := [];
+       lemma_patterns        := [];
        lemma_precondition    := asn_gprs;
        lemma_postcondition   := asn_regs_ptsto_safe;
     |}.
 
   Definition lemma_close_gprs : SepLemma close_gprs :=
-    {| lemma_logic_variables := ctx.nil;
-       lemma_patterns        := env.nil;
+    {| lemma_logic_variables := [];
+       lemma_patterns        := [];
        lemma_precondition    := asn_regs_ptsto_safe;
        lemma_postcondition   := asn_gprs;
     |}.
 
-
   Definition lemma_safe_move_cursor : SepLemma safe_move_cursor :=
-    let Σ : LCtx := ["p" ∶ ty_perm, "b" ∶ ty_addr, "e" ∶ ty_addr, "a" ∶ ty_addr, "a'" ∶ ty_addr]%ctx in
-    let c  : Term Σ _ := term_record capability [term_var "p", term_var "b", term_var "e", term_var "a"] in
-    let c' : Term Σ _ := term_record capability [term_var "p", term_var "b", term_var "e", term_var "a'"] in
+    let Σ : LCtx := ["p" ∶ ty_perm; "b" ∶ ty_addr; "e" ∶ ty_addr; "a" ∶ ty_addr; "a'" ∶ ty_addr]%ctx in
+    let c  : Term Σ _ := term_record capability [term_var "p"; term_var "b"; term_var "e"; term_var "a"] in
+    let c' : Term Σ _ := term_record capability [term_var "p"; term_var "b"; term_var "e"; term_var "a'"] in
     {| lemma_logic_variables := Σ;
-       lemma_patterns        := [c', c]%arg;
+       lemma_patterns        := [nenv c'; c];
        lemma_precondition    := asn_csafe c;
        lemma_postcondition   :=
          asn_csafe c ∗
@@ -752,11 +751,11 @@ Section ContractDefKit.
     unit csafe_sub_perm(c : capability, c' : capability);
    *)
   Definition lemma_safe_sub_perm : SepLemma safe_sub_perm :=
-    let Σ : LCtx := ["p" ∶ ty_perm, "p'" ∶ ty_perm, "b" ∶ ty_addr, "e" ∶ ty_addr, "a" ∶ ty_addr]%ctx in
-    let c  : Term Σ _ := term_record capability [term_var "p", term_var "b", term_var "e", term_var "a"] in
-    let c' : Term Σ _ := term_record capability [term_var "p'", term_var "b", term_var "e", term_var "a"] in
+    let Σ : LCtx := ["p" ∶ ty_perm; "p'" ∶ ty_perm; "b" ∶ ty_addr; "e" ∶ ty_addr; "a" ∶ ty_addr]%ctx in
+    let c  : Term Σ _ := term_record capability [term_var "p"; term_var "b"; term_var "e"; term_var "a"] in
+    let c' : Term Σ _ := term_record capability [term_var "p'"; term_var "b"; term_var "e"; term_var "a"] in
     {| lemma_logic_variables := Σ;
-       lemma_patterns        := [c', c]%arg;
+       lemma_patterns        := [nenv c'; c];
        lemma_precondition    :=
          asn_csafe c ∗ term_var "p'" <=ₚ term_var "p";
        lemma_postcondition   :=
@@ -770,11 +769,11 @@ Section ContractDefKit.
     unit csafe_within_range(c' : capability, c : capability);
    *)
   Definition lemma_safe_within_range : SepLemma safe_within_range :=
-    let Σ : LCtx := ["p" ∶ ty_perm, "b" ∶ ty_addr, "b'" ∶ ty_addr, "e" ∶ ty_addr, "e'" ∶ ty_addr, "a" ∶ ty_addr]%ctx in
-    let c  : Term Σ _ := term_record capability [term_var "p", term_var "b", term_var "e", term_var "a"] in
-    let c' : Term Σ _ := term_record capability [term_var "p", term_var "b'", term_var "e'", term_var "a"] in
+    let Σ : LCtx := ["p" ∶ ty_perm; "b" ∶ ty_addr; "b'" ∶ ty_addr; "e" ∶ ty_addr; "e'" ∶ ty_addr; "a" ∶ ty_addr]%ctx in
+    let c  : Term Σ _ := term_record capability [term_var "p"; term_var "b"; term_var "e"; term_var "a"] in
+    let c' : Term Σ _ := term_record capability [term_var "p"; term_var "b'"; term_var "e'"; term_var "a"] in
     {| lemma_logic_variables := Σ;
-       lemma_patterns        := [c', c]%arg;
+       lemma_patterns        := [nenv c'; c];
        lemma_precondition    :=
          asn_csafe c ∗
          asn_dummy c' ∗
@@ -795,7 +794,7 @@ Section ContractDefKit.
    *)
   Definition lemma_int_safe : SepLemma int_safe :=
     {| lemma_logic_variables := ["i" ∶ ty_int];
-       lemma_patterns        := [term_var "i"]%arg;
+       lemma_patterns        := [term_var "i"];
        lemma_precondition    := asn_true;
        lemma_postcondition   :=
          asn_safe (term_inl (term_var "i"));
@@ -811,19 +810,19 @@ Section ContractDefKit.
 
   Definition lemma_close_ptsreg (r : RegName) : SepLemma (close_ptsreg r) :=
     {| lemma_logic_variables := ["w" ∶ ty_word];
-       lemma_patterns        := env.nil;
+       lemma_patterns        := [];
        lemma_precondition    := regtag_to_reg r ↦ term_var "w";
        lemma_postcondition   := term_enum regname r ↦r term_var "w"
     |}.
 
   Definition sep_contract_rM : SepContractFunX rM :=
-    {| sep_contract_logic_variables := ["address" ∶ ty_addr, "p" ∶ ty_perm, "b" ∶ ty_addr, "e" ∶ ty_addr];
-       sep_contract_localstore      := [term_var "address"]%arg;
+    {| sep_contract_logic_variables := ["address" ∶ ty_addr; "p" ∶ ty_perm; "b" ∶ ty_addr; "e" ∶ ty_addr];
+       sep_contract_localstore      := [term_var "address"];
        sep_contract_precondition    :=
          asn_csafe_angelic (term_record capability
-                            [term_var "p",
-                             term_var "b",
-                             term_var "e",
+                            [term_var "p";
+                             term_var "b";
+                             term_var "e";
                              term_var "address"]) ∗
                    term_val ty_perm R <=ₚ term_var "p" ∗
                    asn_within_bounds (term_var "address") (term_var "b") (term_var "e");
@@ -833,14 +832,14 @@ Section ContractDefKit.
     |}.
 
   Definition sep_contract_wM : SepContractFunX wM :=
-    {| sep_contract_logic_variables := ["address" ∶ ty_addr, "new_value" ∶ ty_memval, "p" ∶ ty_perm, "b" ∶ ty_addr, "e" ∶ ty_addr];
-       sep_contract_localstore      := [term_var "address", term_var "new_value"]%arg;
+    {| sep_contract_logic_variables := ["address" ∶ ty_addr; "new_value" ∶ ty_memval; "p" ∶ ty_perm; "b" ∶ ty_addr; "e" ∶ ty_addr];
+       sep_contract_localstore      := [term_var "address"; term_var "new_value"];
        sep_contract_precondition    :=
          asn_safe (term_var "new_value")
                   ∗ asn_csafe_angelic (term_record capability
-                                           [term_var "p",
-                                            term_var "b",
-                                            term_var "e",
+                                           [term_var "p";
+                                            term_var "b";
+                                            term_var "e";
                                             term_var "address"])
                   ∗ term_val ty_perm RW <=ₚ term_var "p"
                   ∗ asn_within_bounds (term_var "address") (term_var "b") (term_var "e");
@@ -851,7 +850,7 @@ Section ContractDefKit.
 
   Definition sep_contract_dI : SepContractFunX dI :=
     {| sep_contract_logic_variables := ["code" ∶ ty_int];
-       sep_contract_localstore      := [term_var "code"]%arg;
+       sep_contract_localstore      := [term_var "code"];
        sep_contract_precondition    := asn_true;
        sep_contract_result          := "_";
        sep_contract_postcondition   := asn_true;
@@ -859,7 +858,7 @@ Section ContractDefKit.
 
   Definition lemma_gen_dummy : SepLemma gen_dummy :=
     {| lemma_logic_variables := ["c" ∶ ty_cap];
-       lemma_patterns        := [term_var "c"]%arg;
+       lemma_patterns        := [term_var "c"];
        lemma_precondition    := asn_true;
        lemma_postcondition   := asn_dummy (term_var "c");
     |}.
