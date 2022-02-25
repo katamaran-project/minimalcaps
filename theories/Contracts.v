@@ -42,6 +42,7 @@ From Katamaran Require Import
      Notations
      Specification
      Symbolic.Mutator
+     SemiConcrete.Mutator
      Symbolic.Solver.
 
 Set Implicit Arguments.
@@ -942,6 +943,15 @@ Module Import MinCapsExecutor :=
   MakeExecutor MinCapsBase MinCapsSpecification MinCapsSolver.
 Import SMut.
 
+Module MakeShallowExecutor
+  (Import B    : Base)
+  (Import SPEC : Specification B).
+
+  Include SemiConcrete B SPEC.
+End MakeShallowExecutor.
+Module Import MinCapsCMut := MakeShallowExecutor MinCapsBase MinCapsSpecification.
+Import CMut.
+
 Local Ltac solve :=
   repeat
     (repeat
@@ -1002,6 +1012,120 @@ Definition ValidContractDebug {Δ τ} (f : Fun Δ τ) : Prop :=
   | Some c => SMut.ValidContract c (FunDef f)
   | None => False
   end.
+
+Record Count : Set := mkCount
+                        { block : nat
+                        ; error : nat
+                        ; debug : nat (* don't need this, just for debugging atm *)
+                        }.
+
+Definition empty_count := {| block := 0; error := 0; debug := 0 |}.
+
+Definition inc_block (c : Count) : Count :=
+  match c with
+  | {| block := b; error := e; debug := d |} =>
+      {| block := b + 1; error := e; debug := d |}
+  end.
+
+Definition inc_error (c : Count) : Count :=
+  match c with
+  | {| block := b; error := e; debug := d |} =>
+      {| block := b; error := e + 1; debug := d |}
+  end.
+
+Definition inc_debug (c : Count) : Count :=
+  match c with
+  | {| block := b; error := e; debug := d |} =>
+      {| block := b; error := e; debug := d + 1 |}
+  end.
+
+Definition plus_count (c1 c2 : Count) : Count :=
+  match c1, c2 with
+  | {| block := b1; error := e1; debug := d1 |},
+    {| block := b2; error := e2; debug := d2 |} =>
+      {| block := b1 + b2; error := e1 + e2; debug := d1 + d2 |}
+  end.
+
+Fixpoint count_leaves {Σ} (s : 𝕊 Σ) (c : Count) : Count :=
+  match s with
+  | SymProp.error _                  => inc_error c
+  | SymProp.block                    => inc_block c
+  | SymProp.debug _ s                => count_leaves s (inc_debug c)
+  | SymProp.demonicv _ s             => count_leaves s c
+  | SymProp.angelicv _ s             => count_leaves s c
+  | SymProp.assertk _ _ s            => count_leaves s c
+  | SymProp.assumek _ s              => count_leaves s c
+  | SymProp.assert_vareq _ _ _ s => count_leaves s c
+  | SymProp.assume_vareq _ _ s   => count_leaves s c
+  | SymProp.angelic_binary s1 s2     =>
+      plus_count c (plus_count (count_leaves s1 empty_count)
+                               (count_leaves s2 empty_count))
+  | SymProp.demonic_binary s1 s2     =>
+      plus_count c (plus_count (count_leaves s1 empty_count)
+                               (count_leaves s2 empty_count))
+  end.
+
+Definition contract_count_leaves {Δ τ} (c : SepContract Δ τ) (body : PROG.Stm Δ τ) (prune : forall {Σ : LCtx}, 𝕊 Σ -> 𝕊 Σ)  : Count :=
+               count_leaves
+                 (prune
+                    (Postprocessing.solve_uvars
+                       (prune
+                          (Postprocessing.solve_evars
+                             (prune
+                             (exec_contract_path default_config 1 c body)
+                           ))))) empty_count.
+
+Lemma shallow_exec_instr :
+  CMut.ValidContract 1 sep_contract_exec_instr fun_exec_instr.
+Proof.
+  (* compute. *)
+Admitted.
+
+Definition extend_postcond_with_debug {Δ τ} (c : SepContract Δ τ) : SepContract Δ τ :=
+  match c with
+  | {| sep_contract_logic_variables := lv;
+       sep_contract_localstore      := ls;
+       sep_contract_precondition    := pre;
+       sep_contract_result          := res;
+       sep_contract_postcondition   := post;
+    |} => {| sep_contract_logic_variables := lv;
+            sep_contract_localstore      := ls;
+            sep_contract_precondition    := pre;
+            sep_contract_result          := res;
+            sep_contract_postcondition   := post ∗ asn_debug;
+          |}
+  end.
+
+Definition no_prune (Σ : LCtx) : 𝕊 Σ -> 𝕊 Σ := id.
+
+Definition ContractCount {Δ τ} (f : Fun Δ τ) (prune : bool) (debug : bool) : option Count :=
+  let p := if prune then @Postprocessing.prune else no_prune in
+  let c_extend := if debug then extend_postcond_with_debug else id in
+  match CEnv f with
+  | Some c => let c_debug := c_extend c in
+              Some (contract_count_leaves c_debug (FunDef f) p)
+  | None   => None
+  end.
+
+Definition ContractCountDigestible {Δ τ} (f : Fun Δ τ) (prune : bool) (debug : bool) : option (Fun Δ τ * Count) :=
+  match ContractCount f prune debug with
+  | Some c => Some (f, c)
+  | None => None
+  end.
+
+Lemma ContractCountAll : forall {Δ τ} (f : Fun Δ τ),
+    exists c, ContractCountDigestible f false true = Some c.
+Proof.
+  destruct f; eexists; cbv.
+Admitted.
+
+(*
+Set Printing Depth 100.
+Compute (Postprocessing.solve_uvars *)
+           (* (Postprocessing.prune *)
+           (* (Postprocessing.solve_evars *)
+              (* (Postprocessing.prune *)
+              (* (exec_contract_path default_config 1 sep_contract_exec_instr fun_exec_instr))). *)
 
 (* Import List.ListNotations. *)
 (* Import SymProp.notations. *)
