@@ -76,8 +76,8 @@ End TransparentObligations.
 Derive EqDec for PurePredicate.
 Derive EqDec for Predicate.
 
-Module Import MinCapsSpecification <: Specification MinCapsBase.
-Module PROG := MinCapsProgram.
+Module Import MinCapsSignature <: ProgramLogicSignature MinCapsBase.
+  Module PROG := MinCapsProgram.
 
 Section PredicateKit.
   Definition 𝑷 := PurePredicate.
@@ -140,38 +140,42 @@ Section PredicateKit.
 
 End PredicateKit.
 
-Include ContractDeclMixin MinCapsBase MinCapsProgram.
+  Include ContractDeclMixin MinCapsBase MinCapsProgram.
+
+  Module MinCapsContractNotations.
+    Notation "r '↦' t" := (asn_chunk (chunk_ptsreg r t)) (at level 70).
+    Notation "p '∗' q" := (asn_sep p q).
+
+    Open Scope env_scope.
+
+    Notation "p '<=ₚ' p'" := (asn_formula (formula_user subperm (env.nil ► (ty_perm ↦ p) ► (ty_perm ↦ p')))) (at level 70).
+
+    Notation "r '↦r' t" := (asn_chunk (chunk_user ptsreg (env.nil ► (ty_enum regname ↦ r) ► (ty_word ↦ t)))) (at level 70).
+    Notation "a '↦m' t" := (asn_chunk (chunk_user ptsto (env.nil ► (ty_addr ↦ a) ► (ty_int ↦ t)))) (at level 70).
+    Notation asn_match_option T opt xl alt_inl alt_inr := (asn_match_sum T ty_unit opt xl alt_inl "_" alt_inr).
+    Notation asn_safe w := (asn_chunk (chunk_user safe (env.nil ► (ty_word ↦ w)))).
+    Notation asn_csafe c := (asn_chunk (chunk_user safe (env.nil ► (ty_word ↦ (term_inr c))))).
+    Notation asn_csafe_angelic c := (asn_chunk_angelic (chunk_user safe (env.nil ► (ty_word ↦ (term_inr c))))).
+    Notation asn_dummy c := (asn_chunk (chunk_user dummy (env.nil ► (ty_cap ↦ c)))).
+    Notation asn_gprs := (asn_chunk (chunk_user gprs env.nil)).
+    Notation asn_match_cap c p b e a asn :=
+      (asn_match_record
+         capability c
+         (recordpat_snoc (recordpat_snoc (recordpat_snoc (recordpat_snoc recordpat_nil
+                                                                         "cap_permission" p)
+                                                         "cap_begin" b)
+                                         "cap_end" e)
+                         "cap_cursor" a)
+         asn).
+    Notation asn_within_bounds a b e :=
+      (asn_formula (formula_bool (term_binop binop_and
+                                             (term_binop binop_le b a)
+                                             (term_binop binop_le a e)))).
+  End MinCapsContractNotations.
 
 Section ContractDefKit.
+  Import MinCapsContractNotations.
 
-  Local Notation "r '↦' t" := (asn_chunk (chunk_ptsreg r t)) (at level 70).
-  Local Notation "p '∗' q" := (asn_sep p q).
-
-  Open Scope env_scope.
-
-  Local Notation "p '<=ₚ' p'" := (asn_formula (formula_user subperm (env.nil ► (ty_perm ↦ p) ► (ty_perm ↦ p')))) (at level 70).
-
-  Local Notation "r '↦r' t" := (asn_chunk (chunk_user ptsreg (env.nil ► (ty_enum regname ↦ r) ► (ty_word ↦ t)))) (at level 70).
-  Local Notation "a '↦m' t" := (asn_chunk (chunk_user ptsto (env.nil ► (ty_addr ↦ a) ► (ty_int ↦ t)))) (at level 70).
-  Local Notation asn_match_option T opt xl alt_inl alt_inr := (asn_match_sum T ty_unit opt xl alt_inl "_" alt_inr).
-  Local Notation asn_safe w := (asn_chunk (chunk_user safe (env.nil ► (ty_word ↦ w)))).
-  Local Notation asn_csafe c := (asn_chunk (chunk_user safe (env.nil ► (ty_word ↦ (term_inr c))))).
-  Local Notation asn_csafe_angelic c := (asn_chunk_angelic (chunk_user safe (env.nil ► (ty_word ↦ (term_inr c))))).
-  Local Notation asn_dummy c := (asn_chunk (chunk_user dummy (env.nil ► (ty_cap ↦ c)))).
-  Local Notation asn_gprs := (asn_chunk (chunk_user gprs env.nil)).
-  Local Notation asn_match_cap c p b e a asn :=
-    (asn_match_record
-       capability c
-       (recordpat_snoc (recordpat_snoc (recordpat_snoc (recordpat_snoc recordpat_nil
-        "cap_permission" p)
-        "cap_begin" b)
-        "cap_end" e)
-        "cap_cursor" a)
-       asn).
-  Local Notation asn_within_bounds a b e :=
-    (asn_formula (formula_bool (term_binop binop_and
-                              (term_binop binop_le b a)
-                              (term_binop binop_le a e)))).
 
   (* Arguments asn_prop [_] & _. *)
 
@@ -208,7 +212,16 @@ Section ContractDefKit.
   (* mach_inv = regInv(r1) * regInv(r2) * regInv(r3) * regInv(r4) * regInvCap(pc) *)
   Definition mach_inv {Σ} : Assertion Σ :=
     asn_gprs ∗ (regInvCap pc).
+End ContractDefKit.
 
+Include SpecificationMixin MinCapsBase MinCapsProgram.
+
+End MinCapsSignature.
+
+Module Import MinCapsSpecification <: Specification MinCapsBase MinCapsSignature.
+  Import MinCapsContractNotations.
+
+  Section ContractDefKit.
   (*
      @pre mach_inv;
      @post mach_inv;
@@ -895,11 +908,9 @@ Section ContractDefKit.
 
 End ContractDefKit.
 
-Include SpecificationMixin MinCapsBase MinCapsProgram.
-
 End MinCapsSpecification.
 
-Module MinCapsSolverKit <: SolverKit MinCapsBase MinCapsSpecification.
+Module MinCapsSolverKit <: SolverKit MinCapsBase MinCapsSignature MinCapsSpecification.
   Equations(noeqns) simplify_subperm {Σ} (p q : Term Σ ty_perm) : option (List Formula Σ) :=
   | term_val p | term_val q := if decide_subperm p q then Some nil else None;
   | term_val O | q          := Some nil;
@@ -937,20 +948,20 @@ Module MinCapsSolverKit <: SolverKit MinCapsBase MinCapsSpecification.
   Definition solver_spec : SolverSpec solver.
   Admitted.
 End MinCapsSolverKit.
-Module MinCapsSolver := MakeSolver MinCapsBase MinCapsSpecification MinCapsSolverKit.
+Module MinCapsSolver := MakeSolver MinCapsBase MinCapsSignature MinCapsSpecification MinCapsSolverKit.
 
 Module Import MinCapsExecutor :=
-  MakeExecutor MinCapsBase MinCapsSpecification MinCapsSolver.
+  MakeExecutor MinCapsBase MinCapsSignature MinCapsSpecification MinCapsSolver.
 Import SMut.
 
-Module MakeShallowExecutor
+(* Module MakeShallowExecutor
   (Import B    : Base)
   (Import SPEC : Specification B).
 
   Include SemiConcrete B SPEC.
 End MakeShallowExecutor.
 Module Import MinCapsCMut := MakeShallowExecutor MinCapsBase MinCapsSpecification.
-Import CMut.
+Import CMut. *)
 
 Local Ltac solve :=
   repeat
@@ -980,26 +991,7 @@ Local Ltac solve :=
      auto
     ).
 
-Local Notation "r '↦' t" := (chunk_ptsreg r t) (at level 70).
-Local Notation "r '↦r' t" := (chunk_user ptsreg (env.nil ► (ty_enum regname ↦ r) ► (ty_word ↦ t))) (at level 70).
-Local Notation "a '↦m' t" := (chunk_user ptsto (env.nil ► (ty_addr ↦ a) ► (ty_int ↦ t))) (at level 70).
-Local Notation "p '∗' q" := (asn_sep p q).
-Local Notation safew w := (chunk_user safe (env.nil ► (ty_word ↦ w))).
-Local Notation asn_csafe c := (asn_chunk (chunk_user safe (env.nil ► (ty_word ↦ (term_inr c))))).
-Local Notation asn_dummy c := (asn_chunk (chunk_user dummy (env.nil ► (ty_cap ↦ c)))).
-Local Notation asn_match_cap c p b e a asn :=
-(asn_match_record
-    capability c
-    (recordpat_snoc (recordpat_snoc (recordpat_snoc (recordpat_snoc recordpat_nil
-    "cap_permission" p)
-    "cap_begin" b)
-    "cap_end" e)
-    "cap_cursor" a)
-    asn).
-Local Notation asn_within_bounds a b e :=
-  (asn_formula (formula_bool (term_binop binop_and
-                                         (term_binop binop_le b a)
-                                         (term_binop binop_le a e)))).
+Import MinCapsContractNotations.
 
 Definition ValidContract {Δ τ} (f : Fun Δ τ) : Prop :=
   match CEnv f with
@@ -1075,11 +1067,11 @@ Definition contract_count_leaves {Δ τ} (c : SepContract Δ τ) (body : PROG.St
                              (exec_contract_path default_config 1 c body)
                            ))))) empty_count.
 
-Lemma shallow_exec_instr :
+(* Lemma shallow_exec_instr :
   CMut.ValidContract 1 sep_contract_exec_instr fun_exec_instr.
 Proof.
   (* compute. *)
-Admitted.
+Admitted. *)
 
 Definition extend_postcond_with_debug {Δ τ} (c : SepContract Δ τ) : SepContract Δ τ :=
   match c with
